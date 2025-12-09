@@ -3,7 +3,7 @@
     let EMOJI_DB = []; 
     let lastProcessedContent = "";
     
-    // --- 调试工具：日志记录 ---
+    // --- 调试日志工具 ---
     function debugLog(step, message, data = null) {
         const time = new Date().toLocaleTimeString();
         console.log(`%c[${time}] [OW调试-步骤${step}] ${message}`, "color: #ff00ff; font-weight: bold;", data || "");
@@ -18,12 +18,46 @@
         currentChatFileId: null,
     };
 
+    // --- 辅助函数 (前置定义，防止 ReferenceError) ---
+    function updateMainBadge() {
+        let total = 0;
+        Object.values(State.contacts).forEach(c => total += (c.unread || 0));
+        const badge = $('#ow-main-badge');
+        if (total > 0) badge.text(total).show();
+        else badge.hide();
+    }
+
+    function getRandomColor() {
+        const colors = ['#f56a00', '#7265e6', '#ffbf00', '#00a2ae', '#1890ff', '#52c41a'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function saveData() { 
+        if (State.currentChatFileId) {
+            localStorage.setItem(STORAGE_PREFIX + State.currentChatFileId, JSON.stringify(State.contacts));
+        }
+    }
+
+    function checkIsUser(name) {
+        return (name === State.userName || name === '我' || name.toLowerCase() === 'user' || name === 'User' || name === '{{user}}');
+    }
+
+    // --- 主初始化流程 ---
     function init() {
         debugLog(0, "插件正在初始化...");
         
-        $.getJSON('/extensions/open_world_phone/emojis.json', function(data) {
+        // 尝试加载表情包
+        $.getJSON('/scripts/extensions/open_world_phone/emojis.json', function(data) {
+            debugLog(0.5, "表情包加载成功");
             EMOJI_DB = data;
             if ($('#ow-emoji-panel').is(':visible')) renderEmojiPanel();
+        }).fail(function() {
+            // 兼容性尝试：如果路径不对，尝试不带 scripts 前缀
+            $.getJSON('/extensions/open_world_phone/emojis.json', function(data) {
+                EMOJI_DB = data;
+            }).fail(function() {
+                 console.error("【严重】找不到表情包文件！请确认文件夹名为 open_world_phone");
+            });
         });
 
         updateContextInfo();
@@ -56,72 +90,37 @@
         }
 
         if (window.eventSource) {
-            debugLog(1, "检测到 eventSource，正在挂载监听器...");
-            
+            debugLog(1, "监听器已挂载");
             window.eventSource.on('generation_ended', function() {
-                debugLog(2, "收到 'generation_ended' 事件 (AI生成完毕)，准备检查数据");
-                // 延迟 500ms 确保数据已写入 context
+                debugLog(2, "AI生成完毕，正在检查新消息...");
                 setTimeout(checkLatestMessage, 500);
             });
-            
-            window.eventSource.on('chat_id_changed', function() {
-                updateContextInfo();
-            });
-        } else {
-            console.error("【严重错误】未检测到 window.eventSource，插件无法自动读取消息！");
+            window.eventSource.on('chat_id_changed', updateContextInfo);
         }
         
         renderContactList();
     }
 
-    // === 核心读取逻辑 (调试版) ===
+    // --- 核心消息读取逻辑 ---
     function checkLatestMessage() {
-        if (!window.SillyTavern || !window.SillyTavern.getContext) {
-            debugLog(3, "失败：无法获取 SillyTavern 上下文对象");
-            return;
-        }
+        if (!window.SillyTavern || !window.SillyTavern.getContext) return;
         
         const context = window.SillyTavern.getContext();
         const chat = context.chat;
         
         if (chat && chat.length > 0) {
             const lastMsg = chat[chat.length - 1];
-            const rawContent = lastMsg.mes; 
+            const rawContent = lastMsg.mes; // 获取原始文本，无视正则隐藏
             
-            debugLog(3, "读取到最新一条聊天记录", {
-                "来源": lastMsg.is_user ? "用户" : "AI",
-                "原始内容(Raw)": rawContent
-            });
-
-            if (rawContent === lastProcessedContent) {
-                debugLog(3.1, "该消息已处理过，跳过");
-                return;
-            }
+            if (rawContent === lastProcessedContent) return;
             lastProcessedContent = rawContent;
             
-            if (rawContent.includes('<msg>')) {
-                debugLog(4, "成功检测到 <msg> 标签！开始解析...");
-                parseCommand(rawContent);
-            } else {
-                debugLog(4, "警告：原始内容中未发现 <msg> 标签。如果此时屏幕上也是空白，说明正则可能把数据删了，而不仅仅是隐藏了。");
-            }
-        } else {
-            debugLog(3, "聊天记录为空");
-        }
-    }
+            debugLog(3, "检查最新消息内容", rawContent);
 
-    // ... (后续函数保持不变，仅为了完整性包含) ...
-    function updateContextInfo() {
-        if (!window.SillyTavern || !window.SillyTavern.getContext) return;
-        const context = window.SillyTavern.getContext();
-        if (context.name) State.userName = context.name;
-        else if (context.user_name) State.userName = context.user_name;
-        const newFileId = context.chatId || context.characterId;
-        if (newFileId && newFileId !== State.currentChatFileId) {
-            State.currentChatFileId = newFileId;
-            State.contacts = {}; 
-            loadData(); 
-            renderContactList();
+            if (rawContent.includes('<msg>')) {
+                debugLog(4, "发现手机指令，开始解析");
+                parseCommand(rawContent);
+            }
         }
     }
 
@@ -130,16 +129,14 @@
         const decodedText = text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
         const msgRegex = /<msg>(.+?)\|(.+?)\|(.+?)\|(.+?)<\/msg>/g;
         let match;
-        let count = 0;
         
         while ((match = msgRegex.exec(decodedText)) !== null) {
-            count++;
             let sender = match[1].trim();
             let receiver = match[2].trim();
             let content = match[3].trim();
             let timeStr = match[4].trim();
 
-            debugLog(5, `解析成功第 ${count} 条: ${sender} 发给 ${receiver}`);
+            debugLog(5, `解析成功: ${sender} -> ${receiver}`);
 
             if (sender.toLowerCase() === 'system' && content.startsWith('ADD:')) {
                 const newContactName = content.replace('ADD:', '').trim();
@@ -170,60 +167,6 @@
                 addMessageLocal(receiver, content, 'sent', timeStr);
             }
         }
-        
-        if (count === 0) {
-            debugLog(5, "正则表达式未匹配到任何内容，请检查格式是否严格为 <msg>A|B|C|D</msg>");
-        }
-    }
-
-    function checkIsUser(name) {
-        return (name === State.userName || name === '我' || name.toLowerCase() === 'user' || name === 'User' || name === '{{user}}');
-    }
-
-    function parseEmojiContent(text) {
-        const bqbMatch = text.match(/\[(?:bqb-|表情:)\s*(.+?)\]/);
-        if (bqbMatch) {
-            const label = bqbMatch[1].trim();
-            const found = EMOJI_DB.find(e => e.label === label);
-            if (found) return `<img src="${found.url}" class="ow-msg-img">`;
-            return `[表情: ${label}]`;
-        }
-        return text;
-    }
-
-    function handleUserSend() {
-        const input = document.getElementById('ow-input');
-        const text = input.value.trim();
-        const target = State.currentChat; 
-        if (!text || !target) return;
-        const now = new Date();
-        const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        addMessageLocal(target, text, 'sent', timeStr);
-        input.value = '';
-        const command = `\n<msg>{{user}}|${target}|${text}|${timeStr}</msg>`;
-        appendToMainInput(command);
-    }
-
-    function sendEmoji(item) {
-        const target = State.currentChat;
-        if (!target) return;
-        const now = new Date();
-        const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        const imgHtml = `<img src="${item.url}" class="ow-msg-img">`;
-        addMessageLocal(target, imgHtml, 'sent', timeStr);
-        $('#ow-emoji-panel').hide();
-        const command = `\n<msg>{{user}}|${target}|[bqb-${item.label}]|${timeStr}</msg>`;
-        appendToMainInput(command);
-    }
-
-    function appendToMainInput(text) {
-        const textarea = document.getElementById('send_textarea');
-        if (!textarea) return;
-        let currentVal = textarea.value;
-        if (currentVal.length > 0 && !currentVal.endsWith('\n')) currentVal += '\n';
-        textarea.value = currentVal + text;
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        textarea.focus();
     }
 
     function addMessageLocal(name, content, type, timeStr) {
@@ -232,47 +175,45 @@
         }
         const msgs = State.contacts[name].messages;
         const lastMsg = msgs[msgs.length - 1];
+        
+        // 简单防抖
         if (lastMsg && lastMsg.content === content && lastMsg.type === type) {
             if (Date.now() - (lastMsg.realTime || 0) < 3000) return;
         }
-        msgs.push({ 
-            type: type, 
-            content: content, 
-            displayTime: timeStr || "刚刚",
-            realTime: Date.now() 
-        });
+        
+        msgs.push({ type, content, displayTime: timeStr || "刚刚", realTime: Date.now() });
         if (type === 'recv' && State.currentChat !== name) State.contacts[name].unread++;
+        
         saveData();
-        updateMainBadge();
+        updateMainBadge(); // 这里不会再报错了
         if (State.isOpen) {
             if (State.currentChat === name) renderChat(name);
             else if (!State.currentChat) renderContactList();
         }
-        debugLog(6, "消息已写入 UI", {name, content, type});
     }
 
-    function deleteMessage(contactName, index) {
-        if (!State.contacts[contactName]) return;
-        State.contacts[contactName].messages.splice(index, 1);
-        saveData();
-        renderChat(contactName);
-        toastr.success("消息已删除");
-    }
+    // --- UI 渲染与交互 ---
+    function updateContextInfo() {
+        if (!window.SillyTavern || !window.SillyTavern.getContext) return;
+        const context = window.SillyTavern.getContext();
+        if (context.name) State.userName = context.name;
+        else if (context.user_name) State.userName = context.user_name;
 
-    function saveData() { 
-        if (State.currentChatFileId) {
-            localStorage.setItem(STORAGE_PREFIX + State.currentChatFileId, JSON.stringify(State.contacts));
+        const newFileId = context.chatId || context.characterId;
+        if (newFileId && newFileId !== State.currentChatFileId) {
+            State.currentChatFileId = newFileId;
+            State.contacts = {}; 
+            loadData(); 
+            renderContactList();
         }
     }
-    
+
     function loadData() {
         State.contacts = {}; 
         if (State.currentChatFileId) {
             const raw = localStorage.getItem(STORAGE_PREFIX + State.currentChatFileId);
             if(raw) {
-                try {
-                    State.contacts = JSON.parse(raw);
-                } catch(e) {}
+                try { State.contacts = JSON.parse(raw); } catch(e) {}
             }
         }
         updateMainBadge();
@@ -296,6 +237,7 @@
         $('#ow-send-btn').click(handleUserSend);
         $('#ow-input').keypress((e) => { if(e.key === 'Enter') handleUserSend(); });
         $('#ow-emoji-btn').click(() => { $('#ow-emoji-panel').slideToggle(150); });
+
         const header = document.getElementById('ow-phone-header');
         const container = document.getElementById('ow-phone-container');
         let offset = {x:0, y:0};
@@ -381,19 +323,24 @@
         if(State.contacts[name]) State.contacts[name].unread = 0;
         updateMainBadge();
         saveData();
+        
         $('#ow-header-title').text(name);
         $('#ow-back-btn').show(); 
         $('#ow-add-btn').hide();  
         $('#ow-chat-footer').show();
         $('#ow-emoji-panel').hide();
+
         const body = $('#ow-phone-body');
         let view = body.find(`.ow-chat-view[data-chat-id="${name}"]`);
         const msgs = State.contacts[name]?.messages || [];
+        
         if (view.length === 0) {
             body.empty();
             view = $(`<div class="ow-chat-view" data-chat-id="${name}"></div>`);
             body.append(view);
-            msgs.forEach((msg, index) => { appendMsgToView(view, msg, name, index); });
+            msgs.forEach((msg, index) => {
+                appendMsgToView(view, msg, name, index);
+            });
             body[0].scrollTop = body[0].scrollHeight;
         } else {
             const currentCount = view.children().length;
@@ -424,9 +371,50 @@
         viewContainer.append(div);
     }
 
-    function getRandomColor() {
-        const colors = ['#f56a00', '#7265e6', '#ffbf00', '#00a2ae', '#1890ff', '#52c41a'];
-        return colors[Math.floor(Math.random() * colors.length)];
+    function parseEmojiContent(text) {
+        const bqbMatch = text.match(/\[(?:bqb-|表情:)\s*(.+?)\]/);
+        if (bqbMatch) {
+            const label = bqbMatch[1].trim();
+            const found = EMOJI_DB.find(e => e.label === label);
+            if (found) return `<img src="${found.url}" class="ow-msg-img">`;
+            return `[表情: ${label}]`;
+        }
+        return text;
+    }
+
+    function handleUserSend() {
+        const input = document.getElementById('ow-input');
+        const text = input.value.trim();
+        const target = State.currentChat; 
+        if (!text || !target) return;
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        addMessageLocal(target, text, 'sent', timeStr);
+        input.value = '';
+        const command = `\n<msg>{{user}}|${target}|${text}|${timeStr}</msg>`;
+        appendToMainInput(command);
+    }
+
+    function sendEmoji(item) {
+        const target = State.currentChat;
+        if (!target) return;
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        const imgHtml = `<img src="${item.url}" class="ow-msg-img">`;
+        addMessageLocal(target, imgHtml, 'sent', timeStr);
+        $('#ow-emoji-panel').hide();
+        const command = `\n<msg>{{user}}|${target}|[bqb-${item.label}]|${timeStr}</msg>`;
+        appendToMainInput(command);
+    }
+
+    function appendToMainInput(text) {
+        const textarea = document.getElementById('send_textarea');
+        if (!textarea) return;
+        let currentVal = textarea.value;
+        if (currentVal.length > 0 && !currentVal.endsWith('\n')) currentVal += '\n';
+        textarea.value = currentVal + text;
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.focus();
     }
 
     $(document).ready(() => setTimeout(init, 500));
