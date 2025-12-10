@@ -5,7 +5,7 @@
     // 防止重复加载
     if (document.getElementById('st-ios-phone-root')) return;
 
-    // 1. HTML 模板 (原封不动)
+    // 1. HTML 模板
     const html = `
     <div id="st-ios-phone-root">
         <div id="st-phone-icon" title="打开/关闭手机">
@@ -31,7 +31,7 @@
                         <div class="ios-search-bar">
                             <div class="search-input">
                                 <svg viewBox="0 0 24 24" width="14" height="14" fill="#8e8e93"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="#8e8e93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                <span>搜索</span>
+                                <input type="text" id="phone-search-bar" placeholder="搜索">
                             </div>
                         </div>
                         <div class="contact-list" id="contact-list-container">
@@ -52,7 +52,7 @@
                         <div class="chat-scroll-area" id="chat-messages-container">
                             </div>
                         <div class="input-area">
-                            <div class="plus-btn">
+                            <div class="plus-btn" id="btn-show-stickers">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="#8e8e93"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
                             </div>
                             <input type="text" class="chat-input" placeholder="iMessage" id="msg-input">
@@ -60,6 +60,7 @@
                                 <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                             </div>
                         </div>
+                        <div id="sticker-panel" style="display:none; height: 0; transition: height 0.3s;"></div>
                     </div>
 
                 </div>
@@ -72,7 +73,7 @@
     div.innerHTML = html;
     document.body.appendChild(div);
 
-    // 2. 拖拽逻辑 (View 负责交互)
+    // 2. 拖拽逻辑
     function makeDraggable(element, handle) {
         let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
         handle.onmousedown = dragMouseDown;
@@ -106,35 +107,43 @@
     makeDraggable(document.getElementById("st-phone-window"), document.getElementById("phone-drag-handle"));
     makeDraggable(document.getElementById("st-phone-icon"), document.getElementById("st-phone-icon"));
 
-    // 3. 导出 UI 操作函数供 core.js 调用
+    // 3. 辅助：渲染消息内容 (支持图片)
+    function renderMessageContent(text) {
+        // 简单的 Markdown 图片解析: ![label](url)
+        // 或者是直接的图片链接 (简单判断)
+        const imgRegex = /!\[.*?\]\((.*?)\)/;
+        const match = text.match(imgRegex);
+        if (match) {
+            return `<img src="${match[1]}" alt="sticker" loading="lazy" />`;
+        }
+        return text; // 纯文本
+    }
+
+    // 4. 导出 UI 操作函数
     window.ST_PHONE.ui = {
         toggleWindow: function() {
-            const icon = document.getElementById('st-phone-icon');
             const windowEl = document.getElementById('st-phone-window');
-            
             if (window.ST_PHONE.state.isDragging) {
                 window.ST_PHONE.state.isDragging = false;
                 return;
             }
-
             window.ST_PHONE.state.isPhoneOpen = !window.ST_PHONE.state.isPhoneOpen;
             windowEl.style.display = window.ST_PHONE.state.isPhoneOpen ? 'block' : 'none';
-            
-            // 如果打开，触发一次数据扫描 (需要 core.js 配合，这里暂时只管 UI)
-            // 实际扫描逻辑在 Core 里绑定
             return window.ST_PHONE.state.isPhoneOpen;
         },
 
-        renderContacts: function() {
+        // 支持传入 dataSource 进行渲染 (用于搜索)
+        renderContacts: function(contactsOverride = null) {
             const container = document.getElementById('contact-list-container');
-            const contacts = window.ST_PHONE.state.contacts;
+            // 如果传入了覆盖数据(搜索结果)，就用传入的，否则用全局状态里的
+            const contacts = contactsOverride || window.ST_PHONE.state.contacts;
             
             container.innerHTML = '';
             if (contacts.length === 0) {
                 container.innerHTML = `
                     <div style="padding-top: 150px; text-align: center; color: #8e8e93;">
-                        <div style="font-size: 24px; margin-bottom: 8px;">无短信</div>
-                        <div style="font-size: 14px;">你可以通过右上角添加新对话</div>
+                        <div style="font-size: 24px; margin-bottom: 8px;">无结果</div>
+                        <div style="font-size: 14px;">${contactsOverride ? '未找到相关信息' : '你可以通过右上角添加新对话'}</div>
                     </div>`;
                 return;
             }
@@ -159,10 +168,12 @@
             const container = document.getElementById('chat-messages-container');
             container.innerHTML = '';
             container.appendChild(document.createElement('div')).style.height = '10px';
+            
             contact.messages.forEach(msg => {
                 const el = document.createElement('div');
                 el.className = `message-bubble ${msg.sender === 'user' ? 'sent' : 'received'}`;
-                el.innerText = msg.text;
+                // 使用新的渲染函数支持图片
+                el.innerHTML = renderMessageContent(msg.text);
                 container.appendChild(el);
             });
             setTimeout(() => container.scrollTop = container.scrollHeight, 0);
@@ -172,8 +183,10 @@
             window.ST_PHONE.state.activeContactId = contact.id;
             document.getElementById('chat-title').innerText = contact.name;
             window.ST_PHONE.ui.renderChat(contact);
+            
             document.getElementById('page-contacts').classList.add('hidden-left');
             document.getElementById('page-contacts').classList.remove('active');
+            
             document.getElementById('page-chat').classList.remove('hidden-right');
             document.getElementById('page-chat').classList.add('active');
         },
@@ -182,18 +195,39 @@
             window.ST_PHONE.state.activeContactId = null;
             document.getElementById('page-contacts').classList.remove('hidden-left');
             document.getElementById('page-contacts').classList.add('active');
+            
             document.getElementById('page-chat').classList.add('hidden-right');
             document.getElementById('page-chat').classList.remove('active');
         }
     };
 
-    // 绑定基础 UI 事件
+    // 5. 事件绑定
     document.getElementById('st-phone-icon').addEventListener('click', () => {
         const isOpen = window.ST_PHONE.ui.toggleWindow();
-        // 触发自定义事件，通知 core.js 刷新数据
         if(isOpen) document.dispatchEvent(new CustomEvent('st-phone-opened'));
     });
     
     document.getElementById('btn-back').onclick = window.ST_PHONE.ui.closeChat;
+
+    // --- 新增：搜索逻辑 ---
+    document.getElementById('phone-search-bar').addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        const allContacts = window.ST_PHONE.state.contacts;
+
+        if (!query) {
+            // 如果清空了，就渲染所有
+            window.ST_PHONE.ui.renderContacts(null);
+            return;
+        }
+
+        // 过滤逻辑：名字包含 OR 任意一条历史消息内容包含
+        const filtered = allContacts.filter(c => {
+            const matchName = c.name.toLowerCase().includes(query);
+            const matchMsg = c.messages.some(m => m.text.toLowerCase().includes(query));
+            return matchName || matchMsg;
+        });
+
+        window.ST_PHONE.ui.renderContacts(filtered);
+    });
 
 })();
