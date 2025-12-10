@@ -1,11 +1,12 @@
 {
     "display_name": "iOS Phone Mod",
     "name": "st-ios-phone",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "User",
     "description": "Adds a draggable iOS-style phone interface.",
     "repo": "",
     "loading_order": 1,
     "requires": [],
-    "js": "index.js"
+    "js": "index.js",
+    "css": "style.css"
 }
