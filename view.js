@@ -1,10 +1,10 @@
 // ==================================================================================
-// 模块: View (界面与交互)
+// 模块: View (界面与交互) - v1.2 Time Sync Fixed
 // ==================================================================================
 (function() {
     if (document.getElementById('st-ios-phone-root')) return;
 
-    // 1. HTML 模板
+    // 1. HTML 模板 (已修复：添加 status-bar-time)
     const html = `
     <div id="st-ios-phone-root">
         <div id="st-phone-icon" title="打开/关闭手机">
@@ -13,6 +13,7 @@
 
         <div id="st-phone-window">
             <div class="phone-notch-area" id="phone-drag-handle">
+                <div id="status-bar-time">12:00</div>
                 <div class="phone-notch"></div>
             </div>
             
@@ -120,7 +121,7 @@
     makeDraggable(document.getElementById("st-phone-window"), document.getElementById("phone-drag-handle"));
     makeDraggable(document.getElementById("st-phone-icon"), document.getElementById("st-phone-icon"));
 
-    // 3. 辅助：渲染消息 (支持 Markdown 图片)
+    // 3. 辅助：渲染消息
     function renderMessageContent(text) {
         const imgRegex = /!\[.*?\]\((.*?)\)/;
         const match = text.match(imgRegex);
@@ -141,6 +142,14 @@
             window.ST_PHONE.state.isPhoneOpen = !window.ST_PHONE.state.isPhoneOpen;
             windowEl.style.display = window.ST_PHONE.state.isPhoneOpen ? 'block' : 'none';
             return window.ST_PHONE.state.isPhoneOpen;
+        },
+
+        // --- 新增：更新状态栏时间 ---
+        updateStatusBarTime: function(timeStr) {
+            const el = document.getElementById('status-bar-time');
+            if (el && timeStr) {
+                el.innerText = timeStr;
+            }
         },
 
         renderContacts: function(contactsOverride = null) {
@@ -189,9 +198,7 @@
             window.ST_PHONE.state.activeContactId = contact.id;
             document.getElementById('chat-title').innerText = contact.name;
             window.ST_PHONE.ui.renderChat(contact);
-            // 每次打开聊天时，确保表情面板是关闭的
             document.getElementById('sticker-panel').classList.add('hidden');
-            
             document.getElementById('page-contacts').classList.add('hidden-left');
             document.getElementById('page-contacts').classList.remove('active');
             document.getElementById('page-chat').classList.remove('hidden-right');
@@ -206,7 +213,6 @@
             document.getElementById('page-chat').classList.remove('active');
         },
 
-        // --- 写信 (New Msg) ---
         toggleNewMsgSheet: function(show) {
             const sheet = document.getElementById('page-new-msg');
             const input = document.getElementById('new-msg-input');
@@ -250,14 +256,12 @@
             window.ST_PHONE.ui.openChat(contact);
         },
 
-        // --- 表情包逻辑 ---
         toggleStickerPanel: function() {
             const panel = document.getElementById('sticker-panel');
             const container = document.getElementById('sticker-grid-container');
             const isHidden = panel.classList.contains('hidden');
             
             if (isHidden) {
-                // 打开前先渲染
                 if (container.children.length === 0) {
                     const stickers = window.ST_PHONE.config.stickers || [];
                     stickers.forEach(s => {
@@ -265,13 +269,9 @@
                         img.src = s.url;
                         img.title = s.label;
                         img.onclick = () => {
-                            // 点击表情：发送格式为 (表情: 标签) ![标签](url)
                             const input = document.getElementById('msg-input');
-                            // 构造消息
                             input.value = `(表情: ${s.label}) ![${s.label}](${s.url})`;
-                            // 触发发送按钮点击
                             document.getElementById('btn-send').click();
-                            // 发送后关闭面板
                             panel.classList.add('hidden');
                         };
                         container.appendChild(img);
@@ -307,7 +307,6 @@
         window.ST_PHONE.ui.renderContacts(filtered);
     });
 
-    // 新消息逻辑
     document.getElementById('btn-add-friend').onclick = () => window.ST_PHONE.ui.toggleNewMsgSheet(true);
     document.getElementById('btn-cancel-new').onclick = () => window.ST_PHONE.ui.toggleNewMsgSheet(false);
     document.getElementById('new-msg-input').addEventListener('keypress', (e) => {
@@ -316,7 +315,6 @@
         }
     });
 
-    // 表情包按钮
     document.getElementById('btn-toggle-stickers').onclick = window.ST_PHONE.ui.toggleStickerPanel;
 
 })();
