@@ -1,5 +1,5 @@
 /* ==================================================================================
-   模块: Style (样式表) - v1.9 Stable UI (Final Polish)
+   模块: Style (样式表) - v1.9.1 UI Fixes (Search Bar & Alignment)
    ================================================================================== */
 
 /* =========================================
@@ -150,8 +150,8 @@
 
 .nav-title { 
     font-weight: 600; 
-    font-size: 17px;
-    color: #000;
+    font-size: 17px; 
+    color: #000; 
     position: absolute;
     left: 50%;
     top: 50%;
@@ -184,13 +184,13 @@
 }
 
 /* =========================================
-   搜索栏 (Search Bar) - 原生风格
+   搜索栏 (Search Bar) - 修正版
    ========================================= */
 .ios-search-bar {
     padding: 0 16px 8px 16px;
 }
 .search-input {
-    background-color: #E3E3E8;
+    background-color: #E3E3E8; /* 统一浅灰底色 */
     border-radius: 10px;
     height: 36px;
     display: flex;
@@ -200,13 +200,12 @@
     color: #8e8e93;
     font-size: 15px;
     gap: 6px;
-    transition: background-color 0.2s, box-shadow 0.2s;
+    transition: background-color 0.2s;
 }
 
-/* 图标颜色过渡 */
+/* 放大镜图标颜色 */
 .search-input svg path {
-    fill: #8e8e93;
-    transition: fill 0.2s;
+    fill: #8e8e93; /* 默认深灰 */
 }
 
 #phone-search-bar {
@@ -214,19 +213,22 @@
     border: none;
     outline: none;
     font-size: 15px;
-    color: #000;
+    color: #000; /* 输入文字为黑色 */
     width: 100%;
     height: 100%;
     padding-right: 10px;
 }
-#phone-search-bar::placeholder { color: #8e8e93; }
 
-/* 激活态：变白 */
-.search-input:focus-within {
-    background-color: #FFFFFF;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+/* 占位符统一为深灰，不反转 */
+#phone-search-bar::placeholder { 
+    color: #8e8e93; 
+    opacity: 1;
 }
-.search-input:focus-within svg path { fill: #333; }
+
+/* 激活态仅改变背景亮度，不做反色 */
+.search-input:focus-within {
+    background-color: #d1d1d6; 
+}
 
 /* =========================================
    联系人列表 (Contact List)
@@ -350,7 +352,7 @@
 }
 
 /* =========================================
-   底部输入栏 (Input Area)
+   底部输入栏 (Input Area) - 对齐修正版
    ========================================= */
 .input-area {
     padding: 10px 16px 20px 16px;
@@ -361,7 +363,7 @@
     border-top: 0.5px solid #bdc5cd;
 }
 
-/* 加号按钮 */
+/* 左侧加号按钮 (参考基准) */
 .plus-btn {
     width: 28px;
     height: 28px;
@@ -374,7 +376,7 @@
     justify-content: center;
     cursor: pointer;
     transition: background 0.2s;
-    padding-bottom: 1px;
+    padding-bottom: 1px; /* 视觉微调 */
 }
 .plus-btn:hover { background-color: #aeb0b2; }
 
@@ -390,33 +392,30 @@
     height: 36px;
 }
 
-/* --- 发送按钮 (回归经典纯蓝版) --- 
-   修复了椭圆问题，修复了图标不居中问题
+/* --- 发送按钮 (右侧) --- 
+   修正：尺寸与左侧完全一致 (28px)，轴对称
 */
 .send-btn {
-    /* 强制固定宽高，确保是正圆 */
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
-    min-height: 34px;
+    width: 28px;      /* 改为 28px */
+    min-width: 28px;
+    height: 28px;     /* 改为 28px */
+    min-height: 28px;
     
     border-radius: 50%;
-    
-    /* 纯正 iOS 蓝，无渐变 */
     background-color: #007AFF;
     
-    /* Flex 居中大法 */
     display: flex;
     align-items: center;
     justify-content: center;
     
     cursor: pointer;
     transition: transform 0.1s, background-color 0.2s;
-    box-shadow: none; /* 移除所有光效 */
+    box-shadow: none;
+    padding: 0;
 }
 
 .send-btn:hover {
-    background-color: #006ce6; /* 悬停微深 */
+    background-color: #006ce6;
 }
 
 .send-btn:active { 
@@ -424,16 +423,16 @@
 }
 
 .send-btn svg { 
-    width: 18px; 
-    height: 18px; 
+    width: 15px;   /* 缩小图标以适配 28px 容器 */
+    height: 15px; 
     fill: white; 
     
-    /* 移除 margin，确保物理居中 */
-    margin: 0; 
     display: block;
+    margin: 0;
     
-    /* 微调视觉重心 (SVG 图标本身可能会有点偏) */
-    transform: translateX(-1px) translateY(1px); 
+    /* 视觉重心修正：纸飞机通常看起来偏左，向右微调 2px 达到视觉居中 */
+    margin-left: 2px; 
+    margin-top: 1px;
 }
 
 /* 隐藏滚动条 */
@@ -483,29 +482,18 @@
 }
 
 /* =========================================
-   新消息提示点 (Notification Dot) - 最终版
+   新消息提示点 (Notification Dot)
    ========================================= */
 .notification-dot {
     position: absolute;
-    /* 位置微调，挂在图标右上角 */
     top: -4px;  
     right: -4px;
-    
     width: 14px;
     height: 14px;
-    
-    /* 高级亮灰色 */
     background-color: #E5E5EA; 
-    
-    /* 3px 深色描边，制造镂空感 */
     border: 3px solid #333; 
-    
     border-radius: 50%;
-    
-    /* 层级拉满，防止被图标遮挡 */
     z-index: 10000;
-    
-    /* 默认隐藏，激活时显示 */
     display: none;
     transform: scale(0);
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
