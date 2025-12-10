@@ -1,14 +1,16 @@
 // ==================================================================================
-// 脚本名称: ST-iOS-Phone Loader (最终路径修复版)
-// 作用: 自动识别安装路径，修复 currentScript 为 null 的问题
+// 脚本名称: ST-iOS-Phone Loader (最终稳健版)
+// 作用: 修复 currentScript 在 async 中失效的问题，确保 100% 找到路径
 // ==================================================================================
 
-// 1. 在任何异步操作开始前，立即获取当前脚本路径
-const scriptTag = document.currentScript || (function() {
-    // 备用方案：如果 currentScript 失效，暴力搜索包含 st-ios-phone 的脚本标签
-    const scripts = document.getElementsByTagName('script');
-    for (let i = 0; i < scripts.length; i++) {
-        if (scripts[i].src && (scripts[i].src.includes('st-ios-phone') || scripts[i].src.includes('iOS')) && scripts[i].src.endsWith('index.js')) {
+// 1. 【关键】在进入异步逻辑前，立刻锁定当前脚本标签
+// 必须放在文件最开头，不能放在 async function 里面！
+var scriptTag = document.currentScript || (function() {
+    // 备用方案：如果 currentScript 真的拿不到，就暴力遍历所有 script 标签找自己
+    var scripts = document.getElementsByTagName('script');
+    for (var i = 0; i < scripts.length; i++) {
+        var src = scripts[i].src;
+        if (src && (src.includes('st-ios-phone') || src.includes('iOS')) && src.endsWith('index.js')) {
             return scripts[i];
         }
     }
@@ -16,25 +18,27 @@ const scriptTag = document.currentScript || (function() {
 })();
 
 (async function () {
+    // 2. 检查是否成功定位
     if (!scriptTag) {
-        console.error('❌ ST-iOS-Phone: 无法定位安装路径，请检查文件夹名称是否包含 "st-ios-phone"');
+        console.error('❌ ST-iOS-Phone: 严重错误 - 无法定位插件安装路径。');
+        alert('ST-iOS-Phone 启动失败：无法定位路径，请按 F12 查看控制台。');
         return;
     }
 
-    // 2. 提取路径 (去掉结尾的 index.js)
+    // 3. 提取路径 (去掉结尾的 index.js，只保留文件夹路径)
     const fullUrl = scriptTag.src;
     const EXTENSION_PATH = fullUrl.substring(0, fullUrl.lastIndexOf('/') + 1);
     
     console.log(`📱 ST-iOS-Phone: 路径锁定 -> ${EXTENSION_PATH}`);
 
-    // 3. 模块列表
+    // 4. 定义要加载的子模块
     const modules = [
-        "config.js",
-        "view.js",
-        "core.js"
+        "config.js",  // 配置与表情包
+        "view.js",    // 界面
+        "core.js"     // 核心逻辑
     ];
 
-    // 初始化全局命名空间
+    // 初始化全局变量
     window.ST_PHONE = window.ST_PHONE || {
         state: {
             contacts: [],
@@ -46,19 +50,25 @@ const scriptTag = document.currentScript || (function() {
         config: {}  
     };
 
+    // 加载器函数
     function loadScript(filename) {
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
+            // 加上时间戳 ?v=... 防止浏览器缓存旧代码
             script.src = EXTENSION_PATH + filename + '?v=' + Date.now();
-            script.onload = resolve;
+            script.onload = () => {
+                console.log(`   ✅ 模块就绪: ${filename}`);
+                resolve();
+            };
             script.onerror = () => {
-                console.error(`❌ ST-iOS-Phone: 加载失败 -> ${filename}`);
+                console.error(`   ❌ 加载失败: ${filename}`);
                 reject(new Error(`Failed to load ${filename}`));
             };
             document.head.appendChild(script);
         });
     }
 
+    // 5. 开始依序加载
     try {
         console.log('📱 ST-iOS-Phone: 开始加载子模块...');
         for (const file of modules) {
