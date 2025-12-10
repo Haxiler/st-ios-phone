@@ -1,5 +1,5 @@
 // ==================================================================================
-// 模块: Core (核心逻辑 - v1.9 Stable Fix)
+// 模块: Core (核心逻辑 - v2.2 XML Counter Fix)
 // ==================================================================================
 (function() {
     
@@ -12,18 +12,29 @@
         return `${M}月${D}日 ${h}:${m}`;
     }
 
+    // 初始化状态
     window.ST_PHONE.state.lastUserSendTime = 0;
-    window.ST_PHONE.state.pendingMsgText = null;
-    window.ST_PHONE.state.pendingMsgTarget = null;
+    window.ST_PHONE.state.pendingQueue = []; 
     window.ST_PHONE.state.virtualTime = getSystemTimeStr(); 
 
     // 缓存系统
     let lastChatFingerprint = ''; 
     let cachedContactsMap = new Map(); 
-    let lastChatLength = 0; // 【新增】用于检测新消息数量
+    let lastChatLength = 0; 
+    let lastXmlMsgCount = -1; // 【关键】初始化为 -1，用于精准追踪有效短信数量
 
     const REGEX_XML_MSG = /<msg>(.+?)\|(.+?)\|(.+?)\|(.+?)<\/msg>/gi;
     const REGEX_STORY_TIME = /(?:<|&lt;)time(?:>|&gt;)(.*?)(?:<|&lt;)\/time(?:>|&gt;)/i;
+
+    // 辅助：判断是否是“我”
+    function isUserSender(name, context) {
+        const myNames = ['{{user}}', '你', 'user', 'me', 'myself'];
+        if (context.name1) {
+            myNames.push(context.name1.toLowerCase());
+            myNames.push(context.name1);
+        }
+        return myNames.some(n => n && name.toLowerCase() === n.toLowerCase());
+    }
 
     function scanChatHistory() {
         if (typeof SillyTavern === 'undefined') return;
@@ -32,43 +43,47 @@
         const chat = context.chat; 
         if (!chat || chat.length === 0) return;
 
-        // --- 1. 指纹检测 (性能优化) ---
+        // --- 1. 指纹检测 ---
         const lastMsg = chat[chat.length - 1];
         const lastMsgHash = lastMsg.mes ? lastMsg.mes.slice(-50) : ''; 
         const currentFingerprint = `${chat.length}|${lastMsgHash}|${context.name1}`; 
 
-        let displayContactsMap = new Map(); // 本次循环用于显示的 Map
+        let displayContactsMap = new Map(); 
         let latestNarrativeTime = null; 
-        let needFullScan = false;
+        
+        // 本次扫描的统计数据
+        let currentXmlMsgCount = 0;
+        let lastParsedSmsWasMine = false; // 记录最后一条解析出的短信是否为用户发送
 
-        // 如果指纹变了，说明有新内容/修改，需要全量扫描
         if (currentFingerprint !== lastChatFingerprint) {
-            needFullScan = true;
+            // === 检测到变动，执行全量扫描 ===
             lastChatFingerprint = currentFingerprint;
             
-            // --- 2. 新消息通知检测 (基于长度变化) ---
-            // 只有当消息变多了，且不是第一次加载时，才检测
+            // A. 队列清除逻辑 (只要检测到 User 发了任何新消息，就清空队列)
+            // 这里依然使用 length 判断，因为 User 发的不一定包含 XML，普通对话也应清空队列
             if (lastChatLength > 0 && chat.length > lastChatLength) {
-                const isLastMsgUser = lastMsg.is_user || lastMsg.name === context.name1; // 简单的酒馆原生字段判断
-                // 为了保险，再用我们的正则判断一次最后一条消息
-                let isLastRealUser = false;
-                const matches = [...(lastMsg.mes || '').matchAll(REGEX_XML_MSG)];
-                if (matches.length > 0) {
-                    const lastMatch = matches[matches.length - 1];
-                    const sender = lastMatch[1].trim();
-                    const myNames = ['{{user}}', '你', 'user', 'me', context.name1];
-                    isLastRealUser = myNames.some(n => n && sender.toLowerCase().includes(n.toLowerCase()));
-                }
-
-                // 如果最后一条不是我发的 -> 触发通知
-                if (!isLastRealUser && !window.ST_PHONE.state.isPhoneOpen) {
-                     if (window.ST_PHONE.ui.setNotification) window.ST_PHONE.ui.setNotification(true);
-                     if (window.ST_PHONE.ui.playNotificationSound) window.ST_PHONE.ui.playNotificationSound();
+                const newMessages = chat.slice(lastChatLength);
+                let hasNewUserMsg = false;
+                newMessages.forEach(msg => {
+                    let isMe = msg.is_user || (context.name1 && msg.name === context.name1);
+                    // 简单的正则补救检查
+                    if (!isMe) {
+                         const matches = [...(msg.mes || '').matchAll(REGEX_XML_MSG)];
+                         if (matches.length > 0) {
+                             const sender = matches[matches.length - 1][1].trim();
+                             if (isUserSender(sender, context)) isMe = true;
+                         }
+                    }
+                    if (isMe) hasNewUserMsg = true;
+                });
+                
+                if (hasNewUserMsg) {
+                    window.ST_PHONE.state.pendingQueue = [];
                 }
             }
             lastChatLength = chat.length;
 
-            // --- 3. 全量扫描逻辑 ---
+            // B. 全量解析 & 短信计数
             const currentUserPersona = context.name1 ? context.name1.trim() : null;
             let newContactsMap = new Map();
 
@@ -81,6 +96,9 @@
 
                 const matches = [...cleanMsg.matchAll(REGEX_XML_MSG)];
                 matches.forEach(match => {
+                    // --- 统计计数器 +1 ---
+                    currentXmlMsgCount++;
+
                     let sender = match[1].trim();
                     let receiver = match[2].trim();
                     const content = match[3].trim();
@@ -88,27 +106,22 @@
 
                     if (msgTimeStr && !latestNarrativeTime) latestNarrativeTime = msgTimeStr;
 
-                    let contactName = '';
+                    // 判断归属
                     let isMyMessage = false;
+                    let contactName = '';
 
-                    const myNames = ['{{user}}', '你', 'user', 'me', 'myself'];
-                    if (currentUserPersona) {
-                        myNames.push(currentUserPersona.toLowerCase());
-                        myNames.push(currentUserPersona);
-                    }
-
-                    const isSenderUser = myNames.some(n => sender.toLowerCase() === n.toLowerCase()) || 
-                                         (currentUserPersona && sender.includes(currentUserPersona));
-
-                    if (isSenderUser) {
+                    if (isUserSender(sender, context)) {
                         contactName = receiver; 
                         isMyMessage = true;
                     } else {
                         contactName = sender;
                         isMyMessage = false;
                     }
+
+                    // --- 记录最后一条短信的归属 ---
+                    lastParsedSmsWasMine = isMyMessage;
                     
-                    if (myNames.some(n => contactName.toLowerCase() === n.toLowerCase())) return;
+                    if (isUserSender(contactName, context)) return;
 
                     if (!newContactsMap.has(contactName)) {
                         newContactsMap.set(contactName, {
@@ -132,75 +145,68 @@
                 });
             });
 
-            // 更新缓存
             cachedContactsMap = newContactsMap;
-            // 本次显示使用新生成的 map
             displayContactsMap = newContactsMap;
 
             if (latestNarrativeTime) window.ST_PHONE.state.virtualTime = latestNarrativeTime;
 
+            // C. 通知判定逻辑 (基于 XML 数量变化)
+            if (lastXmlMsgCount === -1) {
+                // 首次加载，同步数据但不通知
+                lastXmlMsgCount = currentXmlMsgCount;
+            } else {
+                // 只有当“有效短信数量”增加时才判定
+                if (currentXmlMsgCount > lastXmlMsgCount) {
+                    // 且最后一条新增的短信不是我发的
+                    if (!lastParsedSmsWasMine && !window.ST_PHONE.state.isPhoneOpen) {
+                        if (window.ST_PHONE.ui.setNotification) window.ST_PHONE.ui.setNotification(true);
+                        if (window.ST_PHONE.ui.playNotificationSound) window.ST_PHONE.ui.playNotificationSound();
+                    }
+                }
+                lastXmlMsgCount = currentXmlMsgCount;
+            }
+
         } else {
-            // === 缓存命中 ===
-            // 【关键修复】这里不能直接用引用，必须创建一个浅拷贝
-            // 否则后续添加 Pending 消息时会修改到 cachedContactsMap，导致无限重复
+            // 缓存命中
             displayContactsMap = new Map(cachedContactsMap);
         }
 
-        // --- 4. Pending 消息处理 (防污染版) ---
-        const pendingText = window.ST_PHONE.state.pendingMsgText;
-        const pendingTarget = window.ST_PHONE.state.pendingMsgTarget;
+        // --- 4. Pending 消息渲染 (保持 v2.1 逻辑) ---
+        const queue = window.ST_PHONE.state.pendingQueue;
         const now = Date.now();
+        const MAX_PENDING_TIME = 60000; 
 
-        if (pendingText) {
-            // 如果目标不存在，先创建一个空的
-            if (!displayContactsMap.has(pendingTarget)) {
-                 displayContactsMap.set(pendingTarget, {
-                        id: pendingTarget,
-                        name: pendingTarget,
+        if (queue.length > 0) {
+            let modifiedContactIds = new Set();
+            const activeQueue = queue.filter(pMsg => (now - pMsg.sendTime < MAX_PENDING_TIME));
+            window.ST_PHONE.state.pendingQueue = activeQueue; 
+
+            activeQueue.forEach(pMsg => {
+                let contact = displayContactsMap.get(pMsg.target);
+                if (!contact) {
+                    contact = {
+                        id: pMsg.target,
+                        name: pMsg.target,
                         lastMsg: '',
                         time: window.ST_PHONE.state.virtualTime,
                         messages: []
-                 });
-            }
-            
-            // 获取联系人对象（此时可能是缓存里的引用）
-            const contact = displayContactsMap.get(pendingTarget);
-            
-            // 检查同步状态 (只有全量扫描时才检查，省性能)
-            let isSynced = false;
-            if (needFullScan) {
-                const recentRealMsgs = contact.messages.slice(-5);
-                isSynced = recentRealMsgs.some(m => m.text === pendingText && m.sender === 'user');
-            }
-
-            if (isSynced) {
-                // 已同步，清除 pending 状态
-                window.ST_PHONE.state.pendingMsgText = null;
-                window.ST_PHONE.state.pendingMsgTarget = null;
-            } else {
-                // 未同步，显示虚影
-                if (now - window.ST_PHONE.state.lastUserSendTime < 60000) {
-                    // 【关键修复】深拷贝 contact 和 messages 数组
-                    // 这样我们修改 displayContact 时，绝对不会影响到 cachedContactsMap
-                    const displayContact = { 
-                        ...contact,
-                        messages: [...contact.messages] 
                     };
-                    
-                    displayContact.messages.push({
-                        sender: 'user',
-                        text: pendingText,
-                        isPending: true 
-                    });
-                    displayContact.lastMsg = pendingText;
-                    
-                    // 将这个临时的克隆对象放入 displayMap
-                    displayContactsMap.set(pendingTarget, displayContact);
-                    
+                    displayContactsMap.set(pMsg.target, contact);
+                    modifiedContactIds.add(pMsg.target);
                 } else {
-                    window.ST_PHONE.state.pendingMsgText = null;
+                    if (!modifiedContactIds.has(pMsg.target)) {
+                        contact = { ...contact, messages: [...contact.messages] };
+                        displayContactsMap.set(pMsg.target, contact);
+                        modifiedContactIds.add(pMsg.target);
+                    }
                 }
-            }
+                contact.messages.push({
+                    sender: 'user',
+                    text: pMsg.text,
+                    isPending: true
+                });
+                contact.lastMsg = pMsg.text;
+            });
         }
 
         // 更新 UI
@@ -217,7 +223,8 @@
             }
             if (window.ST_PHONE.state.activeContactId) {
                 const currentContact = window.ST_PHONE.state.contacts.find(c => c.id === window.ST_PHONE.state.activeContactId);
-                if (currentContact) window.ST_PHONE.ui.renderChat(currentContact);
+                // 使用 false 防止自动滚动干扰阅读
+                if (currentContact) window.ST_PHONE.ui.renderChat(currentContact, false);
             }
         }
     }
@@ -243,11 +250,14 @@
             mainTextArea.value = originalText + separator + xmlString;
             mainTextArea.dispatchEvent(new Event('input', { bubbles: true }));
             
-            window.ST_PHONE.state.lastUserSendTime = Date.now();
-            window.ST_PHONE.state.pendingMsgText = text;
-            window.ST_PHONE.state.pendingMsgTarget = targetName;
+            // 推入队列
+            window.ST_PHONE.state.pendingQueue.push({
+                text: text,
+                target: targetName,
+                sendTime: Date.now()
+            });
             
-            // 立即刷新一次 UI
+            window.ST_PHONE.state.lastUserSendTime = Date.now();
             setTimeout(scanChatHistory, 50);
 
             input.value = '';
@@ -257,6 +267,7 @@
         }
     }
 
+    // 事件挂载
     document.addEventListener('st-phone-opened', () => { scanChatHistory(); });
     const sendBtn = document.getElementById('btn-send');
     if(sendBtn) sendBtn.onclick = sendDraftToInput;
@@ -266,13 +277,13 @@
             if (e.key === 'Enter') sendDraftToInput();
         });
     }
+    
+    // 自动化循环
     function initAutomation() {
         setInterval(() => {
-            // 即使关着手机也要检测，为了通知
             scanChatHistory();
         }, 2000);
         
-        // 监听生成结束事件，确保通知更及时
         if (typeof jQuery !== 'undefined') {
             jQuery(document).on('generation_ended', () => {
                 setTimeout(scanChatHistory, 500); 
@@ -282,7 +293,7 @@
     setTimeout(() => {
         initAutomation();
         scanChatHistory();
-        console.log('✅ ST-iOS-Phone: 逻辑核心已挂载 (v1.9 Stable Fix)');
+        console.log('✅ ST-iOS-Phone: 逻辑核心已挂载 (v2.2 XML Counter Fix)');
     }, 1000);
 
 })();
