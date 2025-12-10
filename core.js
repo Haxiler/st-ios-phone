@@ -179,15 +179,6 @@
     // --- 事件绑定 ---
     document.addEventListener('st-phone-opened', () => { scanChatHistory(); });
 
-    const reloadBtn = document.getElementById('btn-reload-data');
-    if(reloadBtn) {
-        reloadBtn.onclick = () => { 
-            scanChatHistory(); 
-            reloadBtn.style.transform = 'rotate(360deg)'; 
-            setTimeout(()=> reloadBtn.style.transform = 'none', 500); 
-        };
-    }
-
     const sendBtn = document.getElementById('btn-send');
     if(sendBtn) sendBtn.onclick = sendDraftToInput;
 
