@@ -26,40 +26,42 @@
     top: 100px;
     left: 100px;
     width: 375px;
-    height: 667px;
-    background-color: #000;
-    border-radius: 40px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    height: 720px; /* 稍微加长一点，更像现代手机 */
+    background-color: #fff; /* 背景改白，防黑边 */
+    border-radius: 44px; /* 更圆润的角 */
+    box-shadow: 0 25px 60px rgba(0,0,0,0.4);
     z-index: 9999;
     display: none;
     overflow: hidden;
-    border: 12px solid #1c1c1c;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    border: 10px solid #111; /* 边框变细一点 */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
 }
 
 /* =========================================
-   顶部与导航
+   顶部刘海
    ========================================= */
 .phone-notch-area {
     width: 100%;
-    height: 30px;
-    background-color: #f2f2f7;
+    height: 34px;
+    background-color: #fff;
     cursor: move;
     display: flex;
     justify-content: center;
-    align-items: center;
-    border-bottom: 1px solid #e5e5ea;
+    align-items: flex-start;
+    padding-top: 8px;
+    z-index: 20;
+    position: relative;
 }
 .phone-notch {
-    width: 60px;
-    height: 5px;
-    background-color: #ccc;
-    border-radius: 10px;
+    width: 100px;
+    height: 24px;
+    background-color: #111;
+    border-radius: 16px;
 }
 
 .app-container {
     width: 100%;
-    height: calc(100% - 30px);
+    height: calc(100% - 34px);
     background-color: #fff;
     position: relative;
     overflow: hidden;
@@ -71,6 +73,9 @@
     position: relative;
 }
 
+/* =========================================
+   页面转场
+   ========================================= */
 .page {
     width: 100%;
     height: 100%;
@@ -78,51 +83,101 @@
     top: 0;
     left: 0;
     background-color: #fff;
-    transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); /* iOS 风格动效 */
     display: flex;
     flex-direction: column;
 }
+.page.hidden-left { transform: translateX(-30%); opacity: 0.8; } /* 背景页视差效果 */
+.page.hidden-right { transform: translateX(100%); box-shadow: -5px 0 20px rgba(0,0,0,0.1); }
+.page.active { transform: translateX(0); opacity: 1; z-index: 2; }
 
-.page.hidden-left { transform: translateX(-100%); }
-.page.hidden-right { transform: translateX(100%); }
-.page.active { transform: translateX(0); }
-
+/* =========================================
+   iOS 导航栏 (Nav Bar)
+   ========================================= */
 .nav-bar {
     height: 44px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 16px;
-    background-color: rgba(255,255,255,0.95);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(0,0,0,0.1);
+    background-color: rgba(255,255,255,0.85); /* 毛玻璃基底 */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     z-index: 10;
-    position: relative; /* 关键改动：为绝对定位提供基准 */
-}
-
-.nav-title { 
-    font-weight: 600; 
-    font-size: 17px;
-    /* 关键改动：绝对定位居中 */
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    pointer-events: none; /* 防止遮挡中间可能的点击 */
+    position: relative;
 }
 
 .nav-btn { 
-    color: #007AFF; 
-    font-size: 17px; 
-    cursor: pointer; 
     background: none; 
     border: none; 
     padding: 0; 
-    z-index: 2; /* 确保按钮在标题上面 */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
 }
-.nav-btn.icon { font-size: 28px; line-height: 1; font-weight: 300; }
+
+/* 左侧 "编辑" 按钮 */
+.text-btn {
+    color: #007AFF;
+    font-size: 17px;
+    font-weight: 400;
+}
+
+/* 标题 */
+.nav-title { 
+    font-weight: 600; 
+    font-size: 17px;
+    color: #000;
+}
+
+/* 详情页标题组合 */
+.nav-title-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.nav-title-small {
+    font-size: 14px;
+    font-weight: 500;
+    color: #000;
+}
+.chat-avatar-placeholder {
+    width: 24px; 
+    height: 24px; 
+    border-radius: 50%; 
+    background: #ccc; /* 灰色占位 */
+    margin-bottom: 2px;
+}
+
+/* 返回按钮 */
+.back-btn {
+    color: #007AFF;
+    font-size: 17px;
+    gap: 2px;
+}
 
 /* =========================================
-   联系人列表 (无头像版)
+   搜索栏 (装饰用)
+   ========================================= */
+.ios-search-bar {
+    padding: 0 16px 8px 16px;
+}
+.search-input {
+    background-color: #e3e3e8;
+    border-radius: 10px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 10px;
+    color: #8e8e93;
+    font-size: 15px;
+    gap: 6px;
+}
+
+/* =========================================
+   联系人列表
    ========================================= */
 .contact-list { flex: 1; overflow-y: auto; }
 
@@ -130,30 +185,29 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid #c6c6c8;
+    padding: 10px 0;
+    margin-left: 20px; /* 分割线左留白 */
+    border-bottom: 0.5px solid #c6c6c8;
     cursor: pointer;
-    transition: background 0.2s;
-    height: 70px;
+    height: 76px;
 }
-.contact-item:active { background-color: #e5e5ea; }
+.contact-item:active { background-color: #f2f2f2; margin-left: 0; padding-left: 20px; }
 
-.info { width: 100%; }
+.info { width: 100%; padding-right: 16px; }
 .name-row { 
     display: flex; 
     justify-content: space-between; 
     align-items: baseline;
-    margin-bottom: 6px; 
+    margin-bottom: 4px; 
 }
 .name { 
     font-weight: 600; 
-    font-size: 17px; 
+    font-size: 16px; 
     color: #000; 
 }
 .time { 
     font-size: 14px; 
     color: #8e8e93; 
-    font-weight: normal;
 }
 .preview { 
     font-size: 15px; 
@@ -161,41 +215,42 @@
     white-space: nowrap; 
     overflow: hidden; 
     text-overflow: ellipsis; 
-    line-height: 1.2;
+    line-height: 1.3;
+    max-width: 90%;
 }
 
 /* =========================================
-   聊天界面
+   聊天区域
    ========================================= */
 .chat-scroll-area {
     flex: 1;
     overflow-y: auto;
-    padding: 10px 16px;
+    padding: 10px 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     background-color: #fff;
 }
 
 .message-bubble {
-    max-width: 75%;
-    padding: 8px 12px;
+    max-width: 72%;
+    padding: 8px 14px;
     border-radius: 18px;
     font-size: 16px;
-    line-height: 1.4;
+    line-height: 1.35;
     position: relative;
     word-wrap: break-word;
 }
 
-/* 对方的消息 (灰) */
+/* 对方 (灰) */
 .message-bubble.received {
     align-self: flex-start;
-    background-color: #E5E5EA;
+    background-color: #e9e9eb;
     color: #000;
     border-bottom-left-radius: 4px;
 }
 
-/* 我的消息 (蓝) */
+/* 我 (蓝) */
 .message-bubble.sent {
     align-self: flex-end;
     background-color: #007AFF;
@@ -204,28 +259,34 @@
 }
 
 /* =========================================
-   输入区域
+   输入区域 (底部) - 修复对齐
    ========================================= */
 .input-area {
-    padding: 8px 10px;
-    background-color: #f2f2f7;
+    padding: 10px 16px 20px 16px; /* 底部留白给 Home 条 */
+    background-color: #f9f9f9; /* 浅灰背景 */
     display: flex;
-    align-items: center;
-    gap: 10px;
-    border-top: 1px solid #c6c6c8;
+    align-items: center; /* 垂直居中 */
+    gap: 12px;
+    border-top: 0.5px solid #bdc5cd;
 }
+
+/* 强迫症修复：完全居中的加号 */
 .plus-btn {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px; /* 防止被挤压 */
     background-color: #c7c7cc;
     border-radius: 50%;
     color: white;
+    
+    /* 核心 Flex 居中 */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+    
     cursor: pointer;
     transition: background 0.2s;
+    padding-bottom: 1px; /* 视觉微调 */
 }
 .plus-btn:hover { background-color: #aeb0b2; }
 
@@ -233,14 +294,16 @@
     flex: 1;
     border: 1px solid #c6c6c8;
     border-radius: 18px;
-    padding: 8px 12px;
+    padding: 8px 14px;
     font-size: 16px;
     outline: none;
     background: white;
+    height: 36px;
 }
+
 .send-btn {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     background-color: #007AFF;
     border-radius: 50%;
     display: flex;
@@ -249,9 +312,8 @@
     cursor: pointer;
     transition: transform 0.1s;
 }
+.send-btn svg { width: 18px; height: 18px; fill: white; margin-left: 2px; }
 .send-btn:active { transform: scale(0.9); }
-.send-btn svg { width: 16px; height: 16px; fill: white; margin-left: 2px; }
 
-/* 滚动条 */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 2px; }
+/* 隐藏滚动条但保留功能 */
+::-webkit-scrollbar { width: 0px; }
