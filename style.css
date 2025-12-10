@@ -159,13 +159,6 @@
     font-weight: 500;
     color: #000;
 }
-.chat-avatar-placeholder {
-    width: 24px; 
-    height: 24px; 
-    border-radius: 50%; 
-    background: #ccc; 
-    margin-bottom: 2px;
-}
 
 /* 返回按钮 */
 .back-btn {
