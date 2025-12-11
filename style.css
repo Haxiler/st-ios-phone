@@ -531,3 +531,18 @@
     user-select: none;    /* 防止复制文本时误选 */
     clear: both;          /* 确保独占一行 */
 }
+
+/* =========================================
+   新增：未读消息蓝点
+   ========================================= */
+.unread-dot-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: #007AFF; /* iOS 蓝 */
+    border-radius: 50%;
+    margin-left: 6px;
+    vertical-align: middle;
+    /* 简单的脉冲动画让它显眼一点（可选） */
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+}
