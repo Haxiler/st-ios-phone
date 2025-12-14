@@ -19,7 +19,7 @@ var scriptTag = document.currentScript || (function() {
     const EXTENSION_PATH = fullUrl.substring(0, fullUrl.lastIndexOf('/') + 1);
     
     // 4. 定义要加载的子模块
-    const modules = ["config.js", "view.js", "core.js"];
+    const modules = ["config.js", "view.js", "core.js", "scribe.js"];
 
     // 初始化全局变量
     window.ST_PHONE = window.ST_PHONE || {
