@@ -1,5 +1,5 @@
 /* ==================================================================================
-   模块: Style (样式表) - v1.9.2 UI Fixes (Final Polish)
+   模块: Style (样式表) - v3.1 iOS Settings Polish
    ================================================================================== */
 
 /* =========================================
@@ -14,7 +14,7 @@
     background-color: #333;
     border-radius: 18px;
     cursor: pointer;
-    z-index: 9998;
+    z-index: 19998;
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     display: flex;
     align-items: center;
@@ -35,11 +35,12 @@
     background-color: #fff;
     border-radius: 44px;
     box-shadow: 0 25px 60px rgba(0,0,0,0.4);
-    z-index: 9999;
+    z-index: 20000; /* 提高层级 */
     display: none;
     overflow: hidden;
     border: 10px solid #111;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    color: #000; /* 强制全局字体黑 */
 }
 
 /* =========================================
@@ -184,13 +185,13 @@
 }
 
 /* =========================================
-   搜索栏 (Search Bar) - 终极修正版
+   搜索栏 (Search Bar)
    ========================================= */
 .ios-search-bar {
     padding: 0 16px 8px 16px;
 }
 .search-input {
-    background-color: #E3E3E8; /* 原生浅灰 */
+    background-color: #E3E3E8; 
     border-radius: 10px;
     height: 36px;
     display: flex;
@@ -200,47 +201,29 @@
     gap: 6px;
     transition: background-color 0.2s;
 }
+.search-input svg path { fill: #8e8e93; }
 
-/* 图标颜色 */
-.search-input svg path {
-    fill: #8e8e93; 
-}
-
-/* 输入框核心修正：强制透明，清除默认样式 */
 #phone-search-bar {
-    background-color: transparent !important; /* 强制去底色 */
+    background-color: transparent !important; 
     background-image: none !important;
     border: none !important;
     box-shadow: none !important;
     outline: none !important;
-    
-    /* 清除不同浏览器的默认外观 */
     -webkit-appearance: none !important;
     appearance: none !important;
-    
     font-size: 15px;
-    color: #000; /* 输入字为黑色 */
+    color: #000 !important; 
     width: 100%;
     height: 100%;
     padding-right: 10px;
 }
 
-#phone-search-bar::placeholder { 
-    color: #8e8e93; 
-    opacity: 1;
-}
-
-/* 激活态：整个容器变深一点点，模拟 iOS 行为，而不是变白 */
-.search-input:focus-within {
-    background-color: #d1d1d6; 
-}
-/* 确保激活时输入框本身依然透明 */
-#phone-search-bar:focus-within {
-    background-color: transparent !important;
-}
+#phone-search-bar::placeholder { color: #8e8e93; opacity: 1;}
+.search-input:focus-within { background-color: #d1d1d6; }
+#phone-search-bar:focus-within { background-color: transparent !important; }
 
 /* =========================================
-   联系人列表 (Contact List)
+   联系人列表
    ========================================= */
 .contact-list { flex: 1; overflow-y: auto; }
 
@@ -257,33 +240,16 @@
 .contact-item:active { background-color: #f2f2f2; margin-left: 0; padding-left: 20px; }
 
 .info { width: 100%; padding-right: 16px; }
-.name-row { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: baseline;
-    margin-bottom: 4px; 
-}
-.name { 
-    font-weight: 600; 
-    font-size: 16px; 
-    color: #000; 
-}
-.time { 
-    font-size: 14px; 
-    color: #8e8e93; 
-}
+.name-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.name { font-weight: 600; font-size: 16px; color: #000; }
+.time { font-size: 14px; color: #8e8e93; }
 .preview { 
-    font-size: 15px; 
-    color: #8e8e93; 
-    white-space: nowrap; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-    line-height: 1.3;
-    max-width: 90%;
+    font-size: 15px; color: #8e8e93; 
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; max-width: 90%;
 }
 
 /* =========================================
-   聊天气泡 (Chat Bubbles)
+   聊天界面
    ========================================= */
 .chat-scroll-area {
     flex: 1;
@@ -294,7 +260,6 @@
     gap: 6px;
     background-color: #fff;
 }
-
 .message-bubble {
     max-width: 72%;
     padding: 8px 14px;
@@ -304,245 +269,145 @@
     position: relative;
     word-wrap: break-word;
 }
-.message-bubble img {
-    max-width: 100%;
-    border-radius: 8px;
-    display: block;
-    margin: 4px 0;
-}
+.message-bubble img { max-width: 100%; border-radius: 8px; display: block; margin: 4px 0; }
+.message-bubble.received { align-self: flex-start; background-color: #e9e9eb; color: #000; border-bottom-left-radius: 4px; }
+.message-bubble.sent { align-self: flex-end; background-color: #007AFF; color: #fff; border-bottom-right-radius: 4px; }
+.message-bubble.pending { opacity: 0.6; transition: opacity 0.3s; }
 
-.message-bubble.received {
-    align-self: flex-start;
-    background-color: #e9e9eb;
-    color: #000;
-    border-bottom-left-radius: 4px;
-}
-
-.message-bubble.sent {
-    align-self: flex-end;
-    background-color: #007AFF;
-    color: #fff;
-    border-bottom-right-radius: 4px;
-}
-
-.message-bubble.pending {
-    opacity: 0.6;
-    transition: opacity 0.3s;
-}
-
-/* =========================================
-   新消息界面 (Compose)
-   ========================================= */
-.to-row {
-    display: flex;
-    align-items: center;
-    padding: 10px 16px;
-    border-bottom: 0.5px solid #c6c6c8;
-    background: #fff;
-}
-.to-label {
-    color: #8e8e93;
-    font-size: 16px;
-    margin-right: 10px;
-}
-#new-msg-input {
-    flex: 1;
-    border: none;
-    font-size: 16px;
-    outline: none;
-    height: 24px;
-}
+/* 新消息页面 */
+.to-row { display: flex; align-items: center; padding: 10px 16px; border-bottom: 0.5px solid #c6c6c8; background: #fff; }
+.to-label { color: #8e8e93; font-size: 16px; margin-right: 10px; }
+#new-msg-input { flex: 1; border: none; font-size: 16px; outline: none; height: 24px; background: transparent !important; color: #000 !important; }
 .section-title {
-    padding: 8px 16px;
-    font-size: 13px;
-    color: #6d6d72;
-    text-transform: uppercase;
-    background-color: #f2f2f7;
+    padding: 8px 16px; font-size: 13px; color: #6d6d72; text-transform: uppercase; background-color: #f2f2f7;
 }
 
-/* =========================================
-   底部输入栏 (Input Area) - 完美对称版
-   ========================================= */
+/* 输入区域 */
 .input-area {
     padding: 10px 16px 20px 16px;
     background-color: #f9f9f9;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    display: flex; align-items: center; gap: 12px;
     border-top: 0.5px solid #bdc5cd;
 }
-
-/* 左侧加号按钮 (基准: 28px) */
 .plus-btn {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    background-color: #c7c7cc;
-    border-radius: 50%;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.2s;
-    padding-bottom: 1px;
+    width: 28px; height: 28px; min-width: 28px;
+    background-color: #c7c7cc; border-radius: 50%; color: white;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; padding-bottom: 1px;
 }
-.plus-btn:hover { background-color: #aeb0b2; }
-
-/* 输入框 */
-/* style.css - 替换原有的 .chat-input */
 .chat-input {
-    flex: 1;
-    border: 1px solid #c6c6c8;
-    border-radius: 18px;
-    padding: 8px 14px;
-    font-size: 16px;
-    outline: none;
-    background: white;
-    height: 36px;       /* 默认高度 */
-    min-height: 36px;
-    max-height: 100px;  /* 限制最大高度，防止挡住屏幕 */
-    resize: none;       /* 禁止用户拖动大小 */
-    line-height: 1.3;   /* 调整行高 */
-    font-family: inherit;
-    overflow-y: auto;   /* 文字多了出滚动条 */
+    flex: 1; border: 1px solid #c6c6c8; border-radius: 18px;
+    padding: 8px 14px; font-size: 16px; outline: none;
+    background: white !important; color: #000 !important;
+    height: 36px; min-height: 36px; max-height: 100px; resize: none; line-height: 1.3;
 }
-
-/* --- 发送按钮 (右侧) --- 
-   轴对称设计：尺寸与左侧严格一致 (28px)，纯 Flex 居中
-*/
 .send-btn {
-    width: 28px;      
-    min-width: 28px;
-    height: 28px;     
-    min-height: 28px;
-    
-    border-radius: 50%;
-    background-color: #007AFF;
-    
-    display: flex;
-    align-items: center;
-    justify-content: center; /* 物理居中 */
-    
-    cursor: pointer;
-    transition: transform 0.1s, background-color 0.2s;
-    box-shadow: none;
-    padding: 0; /* 移除内边距防止挤压 */
-    margin: 0;
+    width: 28px; min-width: 28px; height: 28px; min-height: 28px;
+    border-radius: 50%; background-color: #007AFF;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; box-shadow: none; padding: 0; margin: 0;
 }
+.send-btn svg { width: 15px; height: 15px; fill: white; transform: translate(1px, 1px); }
 
-.send-btn:hover {
-    background-color: #006ce6;
+/* 表情面板 */
+.sticker-panel { height: 250px; background-color: #e9e9eb; border-top: 0.5px solid #bdc5cd; transition: height 0.3s ease; overflow: hidden; display: flex; flex-direction: column; }
+.sticker-panel.hidden { height: 0; border-top: none; }
+.sticker-grid { flex: 1; overflow-y: auto; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-content: start; }
+.sticker-grid img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 8px; padding: 4px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+/* 小红点与时间戳 */
+.notification-dot {
+    position: absolute; top: -4px; right: -4px; width: 14px; height: 14px;
+    background-color: #E5E5EA; border: 3px solid #333; border-radius: 50%;
+    z-index: 10000; display: none; transform: scale(0); transition: transform 0.3s;
 }
-
-.send-btn:active { 
-    transform: scale(0.92); 
-}
-
-.send-btn svg { 
-    width: 15px;   /* 适配 28px 按钮 */
-    height: 15px; 
-    fill: white; 
-    
-    display: block;
-    margin: 0;     /* 移除所有 margin，依靠 Flex 居中 */
-    transform: translate(1px, 1px); /* 极其微小的光学修正，因为纸飞机重心本身偏左上 */
-}
-
-/* 隐藏滚动条 */
-::-webkit-scrollbar { width: 0px; }
+.notification-dot.active { display: block; transform: scale(1); }
+.chat-timestamp { text-align: center; color: #8e8e93; font-size: 11px; font-weight: 500; margin: 24px 0 12px 0; font-family: "SF Pro Text", sans-serif; clear: both; }
+.unread-dot-indicator { display: inline-block; width: 8px; height: 8px; background-color: #007AFF; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
 
 /* =========================================
-   表情包面板 (Stickers)
+   [NEW] iOS Settings UI (设置页专属样式)
+   重点修复：覆盖 ST 的全局暗黑样式
    ========================================= */
-.sticker-panel {
-    height: 250px;
-    background-color: #e9e9eb;
-    border-top: 0.5px solid #bdc5cd;
-    transition: height 0.3s ease;
-    overflow: hidden;
+
+/* 列表容器 */
+.ios-list-group {
+    background: white;
+    border-top: 0.5px solid #c6c6c8;
+    border-bottom: 0.5px solid #c6c6c8;
+    padding-left: 16px;
     display: flex;
     flex-direction: column;
 }
-.sticker-panel.hidden {
-    height: 0;
-    border-top: none;
+
+/* 单行条目 */
+.ios-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px 12px 0; /* 右侧留空给 chevron */
+    background: transparent;
+    min-height: 44px;
+    position: relative;
 }
 
-.sticker-grid {
+/* 标签文字 */
+.ios-label {
+    font-size: 17px;
+    color: #000;
+    flex-shrink: 0;
+}
+
+/* 模拟 iOS 选择器容器 */
+.ios-select-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex: 1;
-    overflow-y: auto;
-    padding: 10px;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr); 
-    gap: 10px;
-    align-content: start;
+    justify-content: flex-end;
+    position: relative;
 }
 
-.sticker-grid img {
+/* 强制重置 Select 样式 */
+.ios-select-real {
+    /* 关键：清除默认外观 */
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    
+    /* 文字样式 - 浅灰色 */
+    color: #8e8e93 !important; 
+    font-size: 17px !important;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+    text-align: right !important;
+    text-align-last: right !important;
+    direction: rtl; /* 强制文字靠右 */
+
+    /* 布局 */
     width: 100%;
-    aspect-ratio: 1;
-    object-fit: contain;
-    background: #fff;
-    border-radius: 8px;
-    padding: 4px;
+    max-width: 220px;
+    padding-right: 20px; /* 给箭头留位置 */
     cursor: pointer;
-    transition: transform 0.1s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.sticker-grid img:active {
-    transform: scale(0.9);
-    background: #d1d1d6;
+    z-index: 2; /* 浮在箭头上面 */
 }
 
-/* =========================================
-   新消息提示点 (Notification Dot)
-   ========================================= */
-.notification-dot {
+/* 占位箭头图标 */
+.ios-chevron {
     position: absolute;
-    top: -4px;  
-    right: -4px;
-    width: 14px;
-    height: 14px;
-    background-color: #E5E5EA; 
-    border: 3px solid #333; 
-    border-radius: 50%;
-    z-index: 10000;
-    display: none;
-    transform: scale(0);
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    right: 0;
+    pointer-events: none;
+    z-index: 1;
 }
 
-.notification-dot.active {
-    display: block;
-    transform: scale(1);
+/* 底部说明文字 */
+.ios-footer-text {
+    padding: 8px 16px;
+    font-size: 13px;
+    color: #6d6d72;
+    line-height: 1.4;
 }
 
-/* =========================================
-   时间戳 (Timestamp) - v2.0 New Feature
-   ========================================= */
-.chat-timestamp {
-    text-align: center;
-    color: #8e8e93;       /* iOS 标准次级文本灰 */
-    font-size: 11px;      /* 足够小，不干扰阅读 */
-    font-weight: 500;
-    margin: 24px 0 12px 0; /* 上方留多点空隙，区分不同时段 */
-    font-family: "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-    user-select: none;    /* 防止复制文本时误选 */
-    clear: both;          /* 确保独占一行 */
-}
-
-/* =========================================
-   新增：未读消息蓝点
-   ========================================= */
-.unread-dot-indicator {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background-color: #007AFF; /* iOS 蓝 */
-    border-radius: 50%;
-    margin-left: 6px;
-    vertical-align: middle;
-    /* 简单的脉冲动画让它显眼一点（可选） */
-    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
-}
+::-webkit-scrollbar { width: 0px; }
