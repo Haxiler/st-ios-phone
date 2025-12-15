@@ -1,5 +1,5 @@
 // ==================================================================================
-// 模块: Core (核心逻辑 - v3.0 Event-Driven Refactor)
+// 模块: Core (核心逻辑 - v3.2 Robust Sync Fix)
 // ==================================================================================
 (function() {
     
@@ -78,8 +78,7 @@
         let lastParsedSmsWasMine = false;
         let newContactsMap = new Map();
 
-        // 2. 全量解析 (在 ST 1.14+ 中，性能通常不是瓶颈，全量解析更稳健)
-        // 注意：这里保留了原版的正则逻辑，因为它对 <msg> 格式的兼容性最好
+        // 2. 全量解析
         chat.forEach(msg => {
             if (!msg.mes) return;
             const cleanMsg = msg.mes.replace(/```/g, ''); 
@@ -118,7 +117,7 @@
 
                 lastParsedSmsWasMine = isMyMessage;
                 
-                // 忽略用户自己发给自己的（很少见）
+                // 忽略用户自己发给自己的
                 if (isUserSender(contactName, context)) return;
 
                 // 初始化联系人
@@ -134,7 +133,7 @@
                 }
                 const contact = newContactsMap.get(contactName);
 
-                // 简单的防复读去重
+                // 防复读去重
                 const lastMsgInHistory = contact.messages[contact.messages.length - 1];
                 if (isMyMessage && lastMsgInHistory && lastMsgInHistory.sender === 'user' && lastMsgInHistory.text === content) {
                     return; 
@@ -156,16 +155,14 @@
             });
         });
 
-        // 3. 未读消息判定 (对比旧 Map)
+        // 3. 未读消息判定
         newContactsMap.forEach((contact, id) => {
             const oldContact = cachedContactsMap.get(id);
-            // 如果旧缓存里没有，或者新消息数量更多，且最新一条不是我发的
             const isCountIncreased = !oldContact || contact.messages.length > oldContact.messages.length;
             
             if (isCountIncreased) {
                 const lastMsg = contact.messages[contact.messages.length - 1];
                 if (lastMsg && lastMsg.sender !== 'user') {
-                    // 如果当前没有打开这个人的聊天窗口，则标记为未读
                     if (window.ST_PHONE.state.activeContactId !== id) {
                         window.ST_PHONE.state.unreadIds.add(id);
                     }
@@ -173,7 +170,6 @@
             }
         });
 
-        // 更新缓存
         cachedContactsMap = newContactsMap;
         if (latestNarrativeTime) window.ST_PHONE.state.virtualTime = latestNarrativeTime;
 
@@ -182,7 +178,6 @@
             lastXmlMsgCount = currentXmlMsgCount;
         } else {
             if (currentXmlMsgCount > lastXmlMsgCount) {
-                // 如果新增了消息，且最后一条不是我发的，且手机没打开 -> 响铃
                 if (!lastParsedSmsWasMine && !window.ST_PHONE.state.isPhoneOpen) {
                     if (window.ST_PHONE.ui.setNotification) window.ST_PHONE.ui.setNotification(true);
                     if (window.ST_PHONE.ui.playNotificationSound) window.ST_PHONE.ui.playNotificationSound();
@@ -192,10 +187,9 @@
         }
 
         // 5. 处理 Pending (待发送) 队列
-        // 这一步主要是为了让用户发完消息后立刻能在手机上看到，而不需要等 AI 生成完
         const queue = window.ST_PHONE.state.pendingQueue;
         const now = Date.now();
-        const MAX_PENDING_TIME = 600000; // 10分钟超时
+        const MAX_PENDING_TIME = 600000; 
 
         if (queue.length > 0) {
             const activeQueue = queue.filter(pMsg => (now - pMsg.sendTime < MAX_PENDING_TIME));
@@ -203,7 +197,6 @@
 
             activeQueue.forEach(pMsg => {
                 let contact = newContactsMap.get(pMsg.target);
-                // 如果是对新人的发信，需要新建联系人对象
                 if (!contact) {
                     contact = {
                         id: pMsg.target,
@@ -216,7 +209,6 @@
                     newContactsMap.set(pMsg.target, contact);
                 }
                 
-                // 构造临时消息展示
                 const pendingTimeStr = window.ST_PHONE.state.virtualTime;
                 const pendingDate = parseTimeStr(pendingTimeStr);
                 const datePartMatch = pendingTimeStr.match(/(\d+月\d+日)/);
@@ -224,7 +216,7 @@
                 contact.messages.push({
                     sender: 'user',
                     text: pMsg.text,
-                    isPending: true, // 标记为发送中
+                    isPending: true, 
                     timeStr: pendingTimeStr,
                     timestamp: pendingDate.getTime(), 
                     dateStr: datePartMatch ? datePartMatch[1] : ''
@@ -232,7 +224,6 @@
                 contact.lastMsg = pMsg.text;
                 contact.lastTimestamp = pendingDate.getTime();
                 
-                // 我发消息了，清除未读
                 window.ST_PHONE.state.unreadIds.delete(pMsg.target);
             });
         }
@@ -243,26 +234,22 @@
         contactList.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
         window.ST_PHONE.state.contacts = contactList;
 
-        // 更新状态栏时间
         if (window.ST_PHONE.ui.updateStatusBarTime) {
             window.ST_PHONE.ui.updateStatusBarTime(window.ST_PHONE.state.virtualTime);
         }
 
-        // 尝试同步到世界书 (如果 Scribe 模块可用且修复了的话)
+        // === 关键：触发同步 ===
         if (window.ST_PHONE.scribe && typeof window.ST_PHONE.scribe.sync === 'function') {
             try {
                 window.ST_PHONE.scribe.sync(window.ST_PHONE.state.contacts);
             } catch(e) { console.warn('WorldBook sync failed:', e); }
         }
         
-        // 渲染 UI
         if (window.ST_PHONE.ui.renderContacts) {
-            // 如果没在搜索，才刷新列表，防止打字被打断
             const searchInput = document.getElementById('phone-search-bar');
             if (!searchInput || !searchInput.value) {
                 window.ST_PHONE.ui.renderContacts();
             }
-            // 如果正开着某人的聊天，实时刷新
             if (window.ST_PHONE.state.activeContactId) {
                 const currentContact = window.ST_PHONE.state.contacts.find(c => c.id === window.ST_PHONE.state.activeContactId);
                 if (window.ST_PHONE.state.unreadIds.has(window.ST_PHONE.state.activeContactId)) {
@@ -275,10 +262,10 @@
     }
 
     // ----------------------------------------------------------------------
-    // 新版发送逻辑 (Use Internal API)
+    // 新版发送逻辑
     // ----------------------------------------------------------------------
     async function sendDraftToInput() {
-        const input = document.getElementById('msg-input'); // 手机里的输入框
+        const input = document.getElementById('msg-input'); 
         const text = input.value.trim();
         const activeId = window.ST_PHONE.state.activeContactId;
         
@@ -288,56 +275,40 @@
         const targetName = contact ? contact.name : activeId;
         const timeToSend = window.ST_PHONE.state.virtualTime;
 
-        // 构造 Prompt 格式
-        // 这里沿用 XML 格式，因为它是该插件的识别基准
         const xmlString = `<msg>{{user}}|${targetName}|${text}|${timeToSend}</msg>`;
 
-        // === 关键修改：直接调用 ST 内部 API 发送 ===
         try {
             const context = SillyTavern.getContext();
             const currentChat = context.chat;
 
-            // 1. 构建消息对象
-            // 模仿 ST 内部的消息结构
             const newMessage = {
-                name: context.name1, // 用户名
+                name: context.name1, 
                 is_user: true,
                 is_system: false,
                 send_date: getSystemTimeStr(),
-                mes: xmlString, // 消息内容
+                mes: xmlString, 
                 extra: {} 
             };
 
-            // 2. 推入聊天数组
             currentChat.push(newMessage);
             
-            // 3. 触发保存 (这会更新本地存储和界面)
             if (SillyTavern.saveChat) {
                 await SillyTavern.saveChat();
             } else if (context.saveChat) {
                 await context.saveChat();
             }
 
-            // 4. 触发 AI 生成 (如果需要的话)
-            // 通常发短信是希望 AI 回复的
             if (SillyTavern.generate) {
                 SillyTavern.generate(); 
             } else {
-                // 1.14.0 可能改变了全局函数的挂载位置，尝试触发事件或点击
                 const generateBtn = document.getElementById('send_textarea'); 
-                // 如果找不到 API，作为最后手段，我们可以尝试触发 UI 更新事件
-                console.log('ST Phone: Message injected, attempting to trigger generation...');
-                // 1.14.0 通常可以通过 eventSource 触发
-                // 但最稳妥的还是直接修改数据后让 ST 反应过来
                 if(typeof eventSource !== 'undefined') {
                     eventSource.emit('chat_changed');
-                    // 模拟点击生成按钮 (作为最后的保底，虽然我们尽量避免 DOM 操作)
                     const realSendBtn = document.getElementById('send_but');
                     if(realSendBtn) realSendBtn.click();
                 }
             }
 
-            // 5. 更新本地 Pending 队列 (为了立刻在手机 UI 上显示，不用等 AI 生成完)
             window.ST_PHONE.state.pendingQueue.push({
                 text: text,
                 target: targetName,
@@ -345,10 +316,8 @@
             });
             window.ST_PHONE.state.lastUserSendTime = Date.now();
 
-            // 6. 清空手机输入框
             input.value = '';
             
-            // 立即刷新一次手机界面
             scanChatHistory();
 
         } catch (e) {
@@ -358,43 +327,55 @@
     }
 
     // ----------------------------------------------------------------------
-    // 初始化与事件绑定 (Lifecycle)
+    // 初始化与事件绑定 (Lifecycle - Robust Fix)
     // ----------------------------------------------------------------------
     function initCore() {
-        console.log('✅ ST-iOS-Phone: 核心逻辑已挂载 (v3.0 Event-Driven)');
+        console.log('✅ ST-iOS-Phone: 核心逻辑已挂载 (v3.2 Robust)');
 
-        // 1. 绑定发送按钮
         const sendBtn = document.getElementById('btn-send');
         if(sendBtn) sendBtn.onclick = sendDraftToInput;
 
-        // 2. 注册 ST 事件监听 (Event Source)
-        // 这是 1.14.0 推荐的方式，不再使用 setInterval
-        if (typeof eventSource !== 'undefined') {
-            
-            const debouncedScan = debounce(scanChatHistory, 200);
+        // === 修复核心：事件源连接重试机制 ===
+        let retryCount = 0;
+        const MAX_RETRIES = 20; // 尝试 10秒
 
-            // 当聊天加载、切换、有新消息时
-            eventSource.on('chat_id_changed', () => {
-                window.ST_PHONE.state.unreadIds.clear(); // 换卡了，清空未读
+        function connectEventSource() {
+            if (typeof eventSource !== 'undefined') {
+                console.log('🔗 ST-iOS-Phone: 成功连接到 EventSource!');
+                
+                const debouncedScan = debounce(scanChatHistory, 200);
+
+                // 绑定各类事件
+                eventSource.on('chat_id_changed', () => {
+                    window.ST_PHONE.state.unreadIds.clear(); 
+                    scanChatHistory();
+                });
+                eventSource.on('chat_changed', debouncedScan);
+                eventSource.on('generation_ended', debouncedScan);
+                eventSource.on('group_chat_updated', debouncedScan);
+
+                // 连接成功，立刻运行一次
                 scanChatHistory();
-            });
-            eventSource.on('chat_changed', debouncedScan);
-            
-            // 当 AI 生成结束时 (确保能读到 AI 回复的短信)
-            eventSource.on('generation_ended', debouncedScan);
-            
-            // 也可以监听群聊变化等
-            eventSource.on('group_chat_updated', debouncedScan);
+                return;
+            }
 
-            // 首次运行扫描
-            scanChatHistory();
-        } else {
-            console.warn('ST Phone: eventSource not found, falling back to legacy polling.');
-            setInterval(scanChatHistory, 2000); // 只有在极旧版本才回退
+            if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                // console.log(`⏳ 等待 EventSource 就绪 (${retryCount})...`); 
+                setTimeout(connectEventSource, 500); // 每0.5秒查一次
+            } else {
+                // 彻底失败，回退到轮询
+                console.warn('⚠️ ST Phone: EventSource 连接超时，启动安全轮询模式 (Interval: 5000ms)。');
+                // 关键修复：轮询间隔设为 5000ms，大于 scribe 的 2000ms 防抖时间，防止死锁
+                setInterval(scanChatHistory, 5000); 
+                scanChatHistory(); 
+            }
         }
+
+        // 启动连接尝试
+        connectEventSource();
     }
 
-    // 防抖工具函数
     function debounce(func, wait) {
         let timeout;
         return function(...args) {
