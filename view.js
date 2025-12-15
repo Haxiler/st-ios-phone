@@ -1,12 +1,13 @@
 // ==================================================================================
-// 模块: View (界面与交互) - v3.2 Input Fallback
+// 模块: View (界面与交互) - v3.0 ST-1.14 Compatible
 // ==================================================================================
 (function() {
     if (document.getElementById('st-ios-phone-root')) return;
 
-    // 1. HTML 模板 (修改了 Settings 页结构)
+    // 1. HTML 模板
+    // 注意：我们将 z-index 提升到了 20000 以防止被新版 ST 遮挡
     const html = `
-    <div id="st-ios-phone-root">
+    <div id="st-ios-phone-root" style="position: relative; z-index: 20000;">
         <div id="st-phone-icon" title="打开/关闭手机">
             <div id="st-notification-dot" class="notification-dot"></div>
             <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
@@ -105,8 +106,8 @@
                                 </div>
                             </div>
                             <div style="padding: 8px 16px; font-size: 13px; color: #6d6d72;">
-                                优先使用下拉选择。如果列表为空，请在下方手动输入文件名（保存时会自动创建）。
-                                <br>自动匹配状态：<span id="auto-match-status">检测中...</span>
+                                推荐留空。留空时会自动检测当前角色卡绑定的世界书（Embed/Global），并自动创建/更新短信条目。<br/>
+                                仅当你需要将所有角色的短信强制存入同一本全局世界书时，才在此选择。
                             </div>
                         </div>
                     </div>
@@ -148,11 +149,15 @@
             document.onmousemove = null;
         }
     }
-    makeDraggable(document.getElementById("st-phone-window"), document.getElementById("phone-drag-handle"));
-    makeDraggable(document.getElementById("st-phone-icon"), document.getElementById("st-phone-icon"));
+    const phoneWindow = document.getElementById("st-phone-window");
+    const dragHandle = document.getElementById("phone-drag-handle");
+    const phoneIcon = document.getElementById("st-phone-icon");
+    if(phoneWindow && dragHandle) makeDraggable(phoneWindow, dragHandle);
+    if(phoneIcon) makeDraggable(phoneIcon, phoneIcon);
 
-    // 3. 辅助：渲染消息 (保持不变)
+    // 3. 辅助：渲染消息 (处理表情包和Markdown)
     function renderMessageContent(text) {
+        if(!text) return '';
         const bqbRegex = /\[bqb-(\d+)\]/g; 
         let html = text.replace(bqbRegex, (match, indexStr) => {
             const index = parseInt(indexStr);
@@ -165,6 +170,7 @@
         });
         const invalidBqbRegex = /\[bqb-([^\]\d]+)\]/g;
         html = html.replace(invalidBqbRegex, '');
+        // 简单支持 Markdown 图片
         const mdImgRegex = /!\[.*?\]\((.*?)\)/g;
         html = html.replace(mdImgRegex, '<img src="$1" alt="sticker" loading="lazy" />');
         return html;
@@ -193,7 +199,7 @@
             if (window.ST_PHONE.path) {
                 const audio = new Audio(window.ST_PHONE.path + 'ding.mp3');
                 audio.volume = 0.6; 
-                audio.play().catch(e => console.log('声音播放被拦截或文件不存在', e));
+                audio.play().catch(e => console.log('声音播放被拦截', e));
             }
         },
 
@@ -233,6 +239,7 @@
         
         renderChat: function(contact, forceScroll = false) {
             const container = document.getElementById('chat-messages-container');
+            if(!container) return;
             
             const threshold = 60; 
             const currentScrollTop = container.scrollTop;
@@ -355,7 +362,9 @@
                         img.onclick = () => {
                             const input = document.getElementById('msg-input');
                             input.value = `[bqb-${index}]`; 
-                            document.getElementById('btn-send').click();
+                            // 模拟点击发送，利用 Core.js 的监听逻辑
+                            const sendBtn = document.getElementById('btn-send');
+                            if(sendBtn) sendBtn.click();
                             panel.classList.add('hidden');
                         };
                         container.appendChild(img);
@@ -373,7 +382,6 @@
             const pageSettings = document.getElementById('page-settings');
             const select = document.getElementById('setting-worldbook-select');
             const input = document.getElementById('setting-worldbook-input');
-            const statusSpan = document.getElementById('auto-match-status');
 
             // 1. 切换页面
             pageContacts.classList.add('hidden-left');
@@ -381,16 +389,15 @@
             pageSettings.classList.remove('hidden-right');
             pageSettings.classList.add('active');
 
-            // 2. 加载世界书列表
+            // 2. 加载世界书列表 (安全调用新的 Scribe API)
             select.innerHTML = '<option value="">加载中...</option>';
             
             let worldBooks = [];
-            // 使用我们新的 Omni-Scanner 获取列表
             if (window.ST_PHONE.scribe && window.ST_PHONE.scribe.getWorldBookList) {
                 worldBooks = await window.ST_PHONE.scribe.getWorldBookList();
             }
 
-            select.innerHTML = '<option value="">(暂不存储)</option>';
+            select.innerHTML = '<option value="">(推荐：自动跟随角色卡)</option>';
             
             const uniqueBooks = [...new Set(worldBooks)];
             uniqueBooks.forEach(name => {
@@ -401,59 +408,19 @@
                 select.appendChild(opt);
             });
 
-            // 3. 回显状态 (优先 input，其次 select)
-            let currentSelection = window.ST_PHONE.config.targetWorldBook;
-
-            // 4. 自动匹配逻辑
-            let matched = false;
-            if (!currentSelection) {
-                if (typeof SillyTavern !== 'undefined') {
-                    try {
-                        const context = SillyTavern.getContext();
-                        const charId = context.characterId;
-                        if (charId && SillyTavern.characters && SillyTavern.characters[charId]) {
-                            const charData = SillyTavern.characters[charId].data;
-                            const boundBook = charData.character_book;
-                            if (boundBook) {
-                                const boundName = (typeof boundBook === 'string') ? boundBook : boundBook.name;
-                                if (boundName) {
-                                    // 无论列表里有没有，都直接用这个绑定的名字
-                                    currentSelection = boundName;
-                                    window.ST_PHONE.config.targetWorldBook = currentSelection;
-                                    matched = true;
-                                    statusSpan.innerText = `已自动绑定: ${currentSelection}`;
-                                    statusSpan.style.color = '#007AFF';
-                                    
-                                    // 保存一次，确保 index.js 里的监听器能拿到
-                                    if(localStorage) {
-                                        localStorage.setItem('ST_PHONE_PREFS', JSON.stringify({ targetWorldBook: currentSelection }));
-                                    }
-                                }
-                            }
-                        }
-                    } catch(e) {}
-                }
-            }
-
-            if (!matched && !currentSelection) {
-                statusSpan.innerText = '未检测到角色绑定，请手动选择或输入';
-                statusSpan.style.color = '#8e8e93';
-            } else if (!matched) {
-                 statusSpan.innerText = `当前使用: ${currentSelection}`;
-                 statusSpan.style.color = '#007AFF';
-            }
-
-            // 5. 设置控件的值
+            // 3. 回显状态
+            const currentSelection = window.ST_PHONE.config.targetWorldBook;
             if (currentSelection) {
-                // 如果这个值在列表里，就选下拉框
                 if (uniqueBooks.includes(currentSelection)) {
                     select.value = currentSelection;
                     input.value = '';
                 } else {
-                    // 如果不在列表里，就填输入框
                     select.value = "";
                     input.value = currentSelection;
                 }
+            } else {
+                select.value = "";
+                input.value = "";
             }
         },
 
@@ -467,7 +434,6 @@
             pageContacts.classList.add('active');
         },
         
-        // 统一保存逻辑：Input 优先
         saveSettings: function() {
             const select = document.getElementById('setting-worldbook-select');
             const input = document.getElementById('setting-worldbook-input');
@@ -476,9 +442,7 @@
             if (!val) val = select.value;
             
             window.ST_PHONE.config.targetWorldBook = val;
-            console.log('📱 ST-iOS-Phone: 存储目标已更新为', val);
             
-            // 手动触发 LocalStorage 保存 (因为 index.js 只监听了 select change)
             if(localStorage) {
                 localStorage.setItem('ST_PHONE_PREFS', JSON.stringify({ targetWorldBook: val }));
             }
@@ -486,24 +450,24 @@
     };
 
     // 事件绑定
-    document.getElementById('st-phone-icon').addEventListener('click', () => {
-        const isOpen = window.ST_PHONE.ui.toggleWindow();
-        if(isOpen) document.dispatchEvent(new CustomEvent('st-phone-opened'));
-    });
+    const icon = document.getElementById('st-phone-icon');
+    if(icon) {
+        icon.addEventListener('click', () => {
+            const isOpen = window.ST_PHONE.ui.toggleWindow();
+            if(isOpen) document.dispatchEvent(new Event('st-phone-opened'));
+        });
+    }
+
     document.getElementById('btn-back').onclick = window.ST_PHONE.ui.closeChat;
-    
-    // --- 新增：设置页事件绑定 ---
     document.getElementById('btn-open-settings').onclick = window.ST_PHONE.ui.openSettings;
     document.getElementById('btn-settings-back').onclick = window.ST_PHONE.ui.closeSettings;
     
-    // 两个输入控件变动都触发保存
     document.getElementById('setting-worldbook-select').addEventListener('change', (e) => {
-        document.getElementById('setting-worldbook-input').value = ''; // 清空输入框
+        document.getElementById('setting-worldbook-input').value = ''; 
         window.ST_PHONE.ui.saveSettings();
     });
     document.getElementById('setting-worldbook-input').addEventListener('input', window.ST_PHONE.ui.saveSettings);
 
-    // 其余逻辑保持不变...
     document.getElementById('phone-search-bar').addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase().trim();
         const allContacts = window.ST_PHONE.state.contacts;
@@ -537,7 +501,9 @@
                 } else {
                     e.preventDefault();
                     if (e.target.value.trim()) {
-                        document.getElementById('btn-send').click(); 
+                        // 触发 core.js 绑定的 sendDraftToInput
+                        const sendBtn = document.getElementById('btn-send');
+                        if(sendBtn) sendBtn.click();
                     }
                     e.target.style.height = '36px'; 
                 }
