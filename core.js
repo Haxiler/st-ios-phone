@@ -204,6 +204,7 @@
         }
     }
 
+    
     async function sendDraftToInput() {
         const input = document.getElementById('msg-input'); 
         const text = input.value.trim();
@@ -219,16 +220,26 @@
         const xmlString = `<msg>{{user}}|${targetName}|${text}|${timeToSend}</msg>`;
 
         try {
-            // 2. 注入酒馆主输入框 (核心修改)
+            // 2. 注入酒馆主输入框 (追加模式)
             const mainTextArea = document.getElementById('send_textarea');
             
             if (mainTextArea) {
-                mainTextArea.value = xmlString;
+                // 获取当前已有的文本
+                const currentContent = mainTextArea.value;
+                
+                // 如果原本有内容，先换行再追加；如果是空的，直接填入
+                // 【核心修改】：在 xmlString 后面强制追加一个 '\n'，方便立刻书写后续动作
+                const prefix = currentContent ? '\n' : '';
+                mainTextArea.value = currentContent + prefix + xmlString + '\n';
+                
                 // 触发 input 事件以适配前端框架
                 mainTextArea.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // 聚焦并确保光标在最后
                 mainTextArea.focus();
+                mainTextArea.scrollTop = mainTextArea.scrollHeight; 
 
-                // 3. 【已恢复】保留 Pending 队列逻辑，确保手机界面显示“发送中”气泡
+                // 3. 视觉反馈：保留 Pending 队列，让手机界面显示“发送中”
                 window.ST_PHONE.state.pendingQueue.push({
                     text: text,
                     target: targetName,
