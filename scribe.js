@@ -1,13 +1,9 @@
 // ==================================================================================
-// 模块: Scribe (书记员 - v3.95 UI Auto-Refresh)
+// 模块: Scribe (书记员 - v3.95 Lite)
 // ==================================================================================
 (function () {
-
     const MAX_MESSAGES = 30;
-
-    const state = {
-        debounceTimer: null
-    };
+    const state = { debounceTimer: null };
 
     function buildContent(contact) {
         if (!contact.messages || contact.messages.length === 0) return '';
@@ -21,7 +17,6 @@
         return out.trim();
     }
 
-    // jQuery API 请求封装
     async function apiFetch(url, body) {
         return new Promise((resolve, reject) => {
             $.ajax({
@@ -31,50 +26,32 @@
                 contentType: 'application/json',
                 headers: { 'X-CSRF-Token': window.csrf_token },
                 success: function(data) { resolve(data); },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error(`❌ [API Fail] ${url}`, jqXHR.status);
-                    reject(new Error(`API Error: ${jqXHR.status}`));
-                }
+                error: function(jqXHR) { reject(new Error(`API Error: ${jqXHR.status}`)); }
             });
         });
     }
 
-    // 获取列表
     async function fetchWorldBookList() {
-        let names = [];
         try {
             if (typeof window.world_names !== 'undefined' && Array.isArray(window.world_names)) return window.world_names;
             const select = document.querySelector('#world_editor_select');
             if (select && select.options.length > 0) {
-                names = Array.from(select.options)
+                return Array.from(select.options)
                     .map(o => (o.innerText || o.text || "").trim())
                     .filter(v => v && v !== "Select World Info" && v !== "None");
             }
         } catch(e) {}
-        return names;
+        return [];
     }
 
-    // ==========================================================
-    // 核心逻辑: 同步 + 详细调试探针
-    // ==========================================================
     async function performSync(contacts) {
-        // [探针 1] 触发监测
-        console.group("🕵️‍♀️ [Scribe-Debug] 同步流程启动");
-        console.log(`⏰ 时间: ${new Date().toLocaleTimeString()}`);
-        console.log(`📦 传入联系人数量: ${contacts ? contacts.length : 0}`);
-        
-        if (!contacts || !contacts.length) {
-            console.warn("⚠️ 调试信息: 联系人列表为空，跳过。");
-            console.groupEnd();
-            return;
-        }
+        if (!contacts || !contacts.length) return;
 
         let targetBookName = window.ST_PHONE.config.targetWorldBook;
         let isEmbedded = false;
         let charId = null;
         const context = SillyTavern.getContext();
 
-        // 自动探测
         if (!targetBookName && context.characterId) {
             charId = context.characterId;
             const char = SillyTavern.characters[charId];
@@ -89,16 +66,8 @@
             }
         }
 
-        if (!targetBookName) {
-            console.warn("⚠️ 调试信息: 未找到目标世界书，请在手机设置中检查。");
-            console.groupEnd();
-            return;
-        }
+        if (!targetBookName) return;
 
-        // 1. 读取原始数据
-        // [探针 2] 读取新鲜度监测
-        console.log(`📚 [Step 1] 正在读取世界书: ${targetBookName} (模式: ${isEmbedded ? '内嵌' : '全局'})`);
-        
         let bookObj = null;
         if (isEmbedded) {
             const char = SillyTavern.characters[charId];
@@ -106,18 +75,12 @@
             bookObj = char.data.character_book;
         } else {
             try {
-                // 强制从服务器拉取，不依赖缓存
                 const res = await apiFetch('/api/worldinfo/get', { name: targetBookName });
-                if (!res) throw new Error("API返回空");
+                if (!res) return;
                 bookObj = res;
-            } catch(e) {
-                console.error("❌ 读取失败", e);
-                console.groupEnd();
-                return;
-            }
+            } catch(e) { return; }
         }
 
-        // 2. 准备修改
         if (!bookObj.entries) bookObj.entries = [];
         const entriesCollection = bookObj.entries;
         const isDict = !Array.isArray(entriesCollection);
@@ -130,18 +93,15 @@
             const content = buildContent(contact);
             if (!content) return;
 
-            // 查找
             let existingEntry = entryList.find(e => e.comment === comment);
 
             if (!existingEntry) {
-                console.log(`🆕 新增条目: ${contact.name}`);
                 const newEntry = createEntry(contact.name, comment, content);
                 if (isDict) bookObj.entries[newEntry.uid] = newEntry;
                 else bookObj.entries.push(newEntry);
                 modified = true;
             } else {
                 if (existingEntry.content !== content) {
-                    console.log(`⚡ 更新条目: ${contact.name}`);
                     existingEntry.content = content;
                     existingEntry.enabled = true;
                     modified = true;
@@ -149,53 +109,21 @@
             }
         });
 
-        // 3. 提交与验证
         if (modified) {
-            console.log(`💾 [Step 3] 检测到变化，正在提交...`);
-            
             if (isEmbedded) {
                 if (SillyTavern.saveCharacterDebounced) SillyTavern.saveCharacterDebounced(charId);
                 else SillyTavern.saveCharacter(charId);
-                console.log("✅ 内存已更新 (内嵌模式)");
-                
-                // 内嵌模式下，尝试刷新字符编辑器界面（如果开着的话）
-                // 通常 ST 会监听 save 事件自动刷新，但为了保险：
-                if (typeof window.drawCharacterBook === 'function') {
-                    // 如果当前正好开着这个角色的书
-                    // 这是一个尝试性的刷新，不一定总是有效，视 ST 版本而定
-                }
-
             } else {
-                // 全局书模式提交
                 await apiFetch('/api/worldinfo/edit', { name: targetBookName, data: bookObj });
-                console.log("✅ API 响应成功 (200 OK)");
-                
-                // === 关键修复：主动刷新 UI ===
-                // 检查用户当前是否正看着这本世界书，如果是，强制 UI 重载
                 try {
                     const editorSelect = document.getElementById('world_editor_select');
-                    // 如果编辑器下拉框存在，且选中的书名就是我们刚更新的这本书
                     if (editorSelect && editorSelect.value === targetBookName) {
-                        console.log("🔄 检测到世界书编辑器已打开，正在刷新界面...");
-                        
-                        // 调用 ST 内部的加载函数 (兼容不同版本的函数名)
                         const loadFunc = window.loadWorldInfo || (SillyTavern && SillyTavern.loadWorldInfo);
-                        if (typeof loadFunc === 'function') {
-                            loadFunc(targetBookName);
-                            console.log("✅ 界面刷新指令已发送");
-                        }
-                    } else {
-                        console.log("💤 编辑器未打开或未选中该书，跳过 UI 刷新");
+                        if (typeof loadFunc === 'function') loadFunc(targetBookName);
                     }
-                } catch(err) {
-                    console.warn("⚠️ UI 刷新尝试失败 (非致命错误):", err);
-                }
+                } catch(err) {}
             }
-        } else {
-            console.log("🛑 [Step 3] 无需提交 (无变化)");
         }
-        
-        console.groupEnd();
     }
 
     function createEntry(contactName, comment, content) {
@@ -227,6 +155,4 @@
         getWorldBookList: fetchWorldBookList,
         forceSync: () => performSync(window.ST_PHONE.state.contacts)
     };
-
-    console.log('✅ ST-iOS-Phone: 书记员 v3.95 (UI自动刷新版已就绪)');
 })();
