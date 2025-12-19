@@ -1,8 +1,9 @@
 // ==================================================================================
-// 模块: Scribe (书记员 - v3.95 Lite)
+// 模块: Scribe (书记员 - v3.95 Lite - Custom Modified)
 // ==================================================================================
 (function () {
-    const MAX_MESSAGES = 30;
+    // 【修改点1】将最大条数限制改为 20 (针对每个角色)
+    const MAX_MESSAGES = 20;
     const state = { debounceTimer: null };
 
     function buildContent(contact) {
@@ -101,9 +102,32 @@
                 else bookObj.entries.push(newEntry);
                 modified = true;
             } else {
+                // 检查内容更新
                 if (existingEntry.content !== content) {
                     existingEntry.content = content;
                     existingEntry.enabled = true;
+                    modified = true;
+                }
+                
+                // 【额外逻辑】强制更新现有条目的属性，以符合新的设定
+                // 1. 深度修正为 3
+                if (existingEntry.depth !== 3) {
+                    existingEntry.depth = 3;
+                    modified = true;
+                }
+                // 2. 强制开启防止递归
+                if (existingEntry.preventRecursion !== true) {
+                    existingEntry.preventRecursion = true;
+                    modified = true;
+                }
+                // 3. 修正触发词 (仅保留名字)
+                // 注意：这会覆盖用户手动修改的触发词，但符合你的“删除其他”要求
+                const targetKeysStr = JSON.stringify([contact.name]);
+                const currentKeysStr = JSON.stringify(existingEntry.keys || []);
+                // 简单对比数组内容（假设顺序一致或单元素）
+                if (currentKeysStr !== targetKeysStr && (!existingEntry.keys || existingEntry.keys.length !== 1 || existingEntry.keys[0] !== contact.name)) {
+                    existingEntry.key = [contact.name];
+                    existingEntry.keys = [contact.name];
                     modified = true;
                 }
             }
@@ -129,14 +153,18 @@
     function createEntry(contactName, comment, content) {
         return {
             uid: generateUUID(), 
-            key: ['<msg>', '短信', '手机', contactName], 
-            keys: ['<msg>', '短信', '手机', contactName],
+            // 【修改点2】触发词仅保留 contactName
+            key: [contactName], 
+            keys: [contactName],
             comment: comment,
             content: content,
             enabled: true,
             constant: false,
             selectiveLogic: 0,
-            depth: 2,
+            // 【修改点3】深度改为 3
+            depth: 3, 
+            // 【修改点4】防止进一步递归
+            preventRecursion: true,
             order: 100, 
             priority: 100
         };
