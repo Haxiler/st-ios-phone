@@ -1,11 +1,11 @@
 // ==================================================================================
-// 模块: Scribe (书记员 - v4.1 Position Fix)
+// 模块: Scribe (书记员 - v4.2 Final Fix)
 // ==================================================================================
 (function () {
-    const MAX_MESSAGES = 20; 
+    const MAX_MESSAGES = 20; // 每个角色保留最近20条
     const state = { debounceTimer: null };
 
-    // 获取全局 Characters 对象 (兼容 1.14.0+)
+    // 兼容不同版本的 Characters 获取方式
     function getCharacters() {
         return window.characters || (window.SillyTavern && window.SillyTavern.characters) || {};
     }
@@ -56,8 +56,9 @@
         let isEmbedded = false;
         let charId = null;
         const context = SillyTavern.getContext();
-        const chars = getCharacters(); // 使用兼容写法
+        const chars = getCharacters();
 
+        // 1. 确定目标世界书
         if (!targetBookName && context.characterId) {
             charId = context.characterId;
             const char = chars[charId];
@@ -74,6 +75,7 @@
 
         if (!targetBookName) return;
 
+        // 2. 获取世界书数据
         let bookObj = null;
         if (isEmbedded) {
             const char = chars[charId];
@@ -94,6 +96,7 @@
         
         let modified = false;
 
+        // 3. 遍历更新
         contacts.forEach(contact => {
             const comment = `ST_PHONE_SMS::${contact.name}`;
             const content = buildContent(contact);
@@ -101,46 +104,39 @@
 
             let existingEntry = entryList.find(e => e.comment === comment);
 
-            // 扩展配置
+            // 扩展属性配置 (双重保险)
             const extensionConfig = {
+                position: 4, // @D [System] At Depth
                 depth: 3,
-                position: 4, // 冗余备份
-                prevent_recursion: true,
-                exclude_recursion: true 
+                role: 0,     // System
+                prevent_recursion: true
             };
 
             if (!existingEntry) {
+                // 新建条目
                 const newEntry = createEntry(contact.name, comment, content);
                 if (isDict) bookObj.entries[newEntry.uid] = newEntry;
                 else bookObj.entries.push(newEntry);
                 modified = true;
             } else {
+                // 更新现有条目
                 if (existingEntry.content !== content) {
                     existingEntry.content = content;
                     existingEntry.enabled = true;
                     modified = true;
                 }
                 
-                // 【核心修复】：强制纠正属性
-                // 1. 位置代码：4 代表 "At Depth" (在指定深度)
+                // 【强制修正属性】
+                // 1. 位置必须是 4 (@D)
                 if (existingEntry.position !== 4) { existingEntry.position = 4; modified = true; }
-                
-                // 2. 深度：3
+                // 2. 深度必须是 3
                 if (existingEntry.depth !== 3) { existingEntry.depth = 3; modified = true; }
-                
-                // 3. 防递归
+                // 3. 角色必须是 System (0)
+                if (existingEntry.role !== 0) { existingEntry.role = 0; modified = true; }
+                // 4. 防止递归
                 if (existingEntry.preventRecursion !== true) { existingEntry.preventRecursion = true; modified = true; }
 
-                // 4. Extensions 同步
-                if (!existingEntry.extensions) {
-                    existingEntry.extensions = extensionConfig;
-                    modified = true;
-                } else {
-                    if (existingEntry.extensions.position !== 4) { existingEntry.extensions.position = 4; modified = true; }
-                    if (existingEntry.extensions.depth !== 3) { existingEntry.extensions.depth = 3; modified = true; }
-                }
-
-                // 5. 触发词
+                // 5. 触发词修正 (仅保留名字)
                 const targetKeysStr = JSON.stringify([contact.name]);
                 const currentKeysStr = JSON.stringify(existingEntry.keys || []);
                 if (currentKeysStr !== targetKeysStr) {
@@ -148,16 +144,27 @@
                     existingEntry.keys = [contact.name];
                     modified = true;
                 }
+
+                // 6. Extensions 同步 (部分酒馆版本依赖这个)
+                if (!existingEntry.extensions) {
+                    existingEntry.extensions = extensionConfig;
+                    modified = true;
+                } else {
+                    if (existingEntry.extensions.position !== 4) { existingEntry.extensions.position = 4; modified = true; }
+                    if (existingEntry.extensions.depth !== 3) { existingEntry.extensions.depth = 3; modified = true; }
+                }
             }
         });
 
+        // 4. 保存
         if (modified) {
-            console.log('📱 ST-Phone: 检测到变动，正在同步世界书...');
+            console.log('📱 ST-Phone: 同步短信记录到世界书...');
             if (isEmbedded) {
                 if (SillyTavern.saveCharacterDebounced) SillyTavern.saveCharacterDebounced(charId);
                 else if (SillyTavern.saveCharacter) SillyTavern.saveCharacter(charId);
             } else {
                 await apiFetch('/api/worldinfo/edit', { name: targetBookName, data: bookObj });
+                // 刷新编辑器UI (如果开着的话)
                 try {
                     const editorSelect = document.getElementById('world_editor_select');
                     if (editorSelect && editorSelect.value === targetBookName) {
@@ -177,23 +184,26 @@
             comment: comment,
             content: content,
             enabled: true,
+            
+            // 【核心配置】
+            position: 4, // 4 = @D (At Depth)
+            depth: 3,    // 深度 3
+            role: 0,     // 0 = System
+            
+            preventRecursion: true,
             constant: false,
             selectiveLogic: 0,
+            order: 100, 
+            priority: 100,
             
-            // 【关键】：必须显式指定 position = 4，否则 depth 无效！
-            position: 4, 
-            depth: 3, 
-            preventRecursion: true,
-
+            // 兼容性配置
             extensions: {
                 position: 4,
                 depth: 3,
+                role: 0,
                 prevent_recursion: true,
-                exclude_recursion: true 
-            },
-
-            order: 100, 
-            priority: 100
+                exclude_recursion: true
+            }
         };
     }
 
