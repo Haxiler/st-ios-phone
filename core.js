@@ -27,10 +27,24 @@
         if (!str) return new Date();
         const now = new Date();
         let year = now.getFullYear();
+        
+        // 匹配 "12月31日 12:00" 格式
         const fullMatch = str.match(/(\d+)月(\d+)日\s*(\d+)[:：](\d+)/);
         if (fullMatch) {
-            return new Date(year, parseInt(fullMatch[1]) - 1, parseInt(fullMatch[2]), parseInt(fullMatch[3]), parseInt(fullMatch[4]));
+            const m = parseInt(fullMatch[1]);
+            const d = parseInt(fullMatch[2]);
+            const h = parseInt(fullMatch[3]);
+            const min = parseInt(fullMatch[4]);
+            
+            // 【修复跨年Bug】：如果当前月份小于消息月份（如当前1月，消息12月），说明是去年的消息
+            if (now.getMonth() + 1 < m) {
+                year -= 1;
+            }
+            
+            return new Date(year, m - 1, d, h, min);
         }
+        
+        // 匹配仅时间 "12:00" 格式
         const timeMatch = str.match(/(\d+)[:：](\d+)/);
         if (timeMatch) {
             return new Date(year, now.getMonth(), now.getDate(), parseInt(timeMatch[1]), parseInt(timeMatch[2]));
@@ -226,14 +240,21 @@
 
     async function sendDraftToInput() {
         const input = document.getElementById('msg-input'); 
-        const text = input.value.trim();
+        if (!input) return;
+        
+        let text = input.value.trim(); // 使用 let 以便修改
         const activeId = window.ST_PHONE.state.activeContactId;
         
         if (!text || !activeId) return;
 
+        // 【修复XML注入】：将英文管道符替换为中文全角竖线，防止破坏 XML 结构
+        text = text.replace(/\|/g, '｜');
+
         let contact = window.ST_PHONE.state.contacts.find(c => c.id === activeId);
         const targetName = contact ? contact.name : activeId;
         const timeToSend = window.ST_PHONE.state.virtualTime;
+        
+        // 构建 XML
         const xmlString = `<msg>{{user}}|${targetName}|${text}|${timeToSend}</msg>`;
 
         try {
@@ -242,15 +263,22 @@
                 const currentContent = mainTextArea.value;
                 const prefix = currentContent ? '\n' : '';
                 mainTextArea.value = currentContent + prefix + xmlString + '\n';
+                
+                // 触发酒馆输入框的事件，确保数据被捕获
                 mainTextArea.dispatchEvent(new Event('input', { bubbles: true }));
                 mainTextArea.focus();
                 mainTextArea.scrollTop = mainTextArea.scrollHeight; 
 
+                // 加入待发送队列
                 window.ST_PHONE.state.pendingQueue.push({
                     text: text, target: targetName, sendTime: Date.now()
                 });
                 window.ST_PHONE.state.lastUserSendTime = Date.now();
+                
+                // 清空手机输入框
                 input.value = '';
+                
+                // 立即触发扫描更新 UI
                 scanChatHistory(); 
             }
         } catch (e) {
