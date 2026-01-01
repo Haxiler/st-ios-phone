@@ -523,4 +523,22 @@
         });
     }
 
+    document.addEventListener('keydown', (e) => {
+        // 只有当手机处于打开状态时才拦截
+        if (e.key === 'Escape' && window.ST_PHONE.state.isPhoneOpen) {
+            
+            // 逻辑优化：如果表情包面板开着，先关表情包
+            const stickerPanel = document.getElementById('sticker-panel');
+            if (stickerPanel && !stickerPanel.classList.contains('hidden')) {
+                window.ST_PHONE.ui.toggleStickerPanel();
+                e.stopPropagation(); // 阻止事件冒泡，避免误触酒馆其他功能
+                return;
+            }
+
+            // 否则直接关闭/隐藏手机窗口
+            window.ST_PHONE.ui.toggleWindow();
+            e.stopPropagation();
+        }
+    });
+
 })();
