@@ -1,10 +1,3 @@
-/* ==================================================================================
-   模块: Style (样式表) - v3.1 iOS Settings Polish
-   ================================================================================== */
-
-/* =========================================
-   全局容器与图标
-   ========================================= */
 #st-phone-icon {
     position: fixed;
     bottom: 20px;
@@ -25,7 +18,6 @@
 #st-phone-icon:active { transform: scale(0.95); }
 #st-phone-icon svg { width: 32px; height: 32px; fill: white; }
 
-/* 手机主窗口 */
 #st-phone-window {
     position: fixed;
     top: 100px;
@@ -35,17 +27,14 @@
     background-color: #fff;
     border-radius: 44px;
     box-shadow: 0 25px 60px rgba(0,0,0,0.4);
-    z-index: 20000; /* 提高层级 */
+    z-index: 20000;
     display: none;
     overflow: hidden;
     border: 10px solid #111;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-    color: #000; /* 强制全局字体黑 */
+    color: #000;
 }
 
-/* =========================================
-   顶部刘海与状态栏
-   ========================================= */
 .phone-notch-area {
     width: 100%;
     height: 34px;
@@ -78,9 +67,6 @@
     white-space: nowrap;
 }
 
-/* =========================================
-   APP 内容容器
-   ========================================= */
 .app-container {
     width: 100%;
     height: calc(100% - 34px);
@@ -95,9 +81,6 @@
     position: relative;
 }
 
-/* =========================================
-   页面转场动画
-   ========================================= */
 .page {
     width: 100%;
     height: 100%;
@@ -115,9 +98,6 @@
 .page.hidden-bottom { transform: translateY(100%); z-index: 20; }
 .page.modal-active { transform: translateY(0); z-index: 20; }
 
-/* =========================================
-   iOS 导航栏 (Navigation Bar)
-   ========================================= */
 .nav-bar {
     height: 44px;
     display: flex;
@@ -184,9 +164,6 @@
     gap: 2px;
 }
 
-/* =========================================
-   搜索栏 (Search Bar)
-   ========================================= */
 .ios-search-bar {
     padding: 0 16px 8px 16px;
 }
@@ -222,9 +199,6 @@
 .search-input:focus-within { background-color: #d1d1d6; }
 #phone-search-bar:focus-within { background-color: transparent !important; }
 
-/* =========================================
-   联系人列表
-   ========================================= */
 .contact-list { flex: 1; overflow-y: auto; }
 
 .contact-item {
@@ -248,9 +222,6 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; max-width: 90%;
 }
 
-/* =========================================
-   聊天界面
-   ========================================= */
 .chat-scroll-area {
     flex: 1;
     overflow-y: auto;
@@ -274,7 +245,6 @@
 .message-bubble.sent { align-self: flex-end; background-color: #007AFF; color: #fff; border-bottom-right-radius: 4px; }
 .message-bubble.pending { opacity: 0.6; transition: opacity 0.3s; }
 
-/* 新消息页面 */
 .to-row { display: flex; align-items: center; padding: 10px 16px; border-bottom: 0.5px solid #c6c6c8; background: #fff; }
 .to-label { color: #8e8e93; font-size: 16px; margin-right: 10px; }
 #new-msg-input { flex: 1; border: none; font-size: 16px; outline: none; height: 24px; background: transparent !important; color: #000 !important; }
@@ -282,7 +252,6 @@
     padding: 8px 16px; font-size: 13px; color: #6d6d72; text-transform: uppercase; background-color: #f2f2f7;
 }
 
-/* 输入区域 */
 .input-area {
     padding: 10px 16px 20px 16px;
     background-color: #f9f9f9;
@@ -294,22 +263,18 @@
     background-color: #c7c7cc; border-radius: 50%; color: white;
     display: flex; align-items: center; justify-content: center; cursor: pointer; padding-bottom: 1px;
 }
+
 .chat-input {
     flex: 1;
-    /* iOS 风格边框与圆角 */
     border: 1px solid #C6C6C8 !important;
     border-radius: 20px !important;
-    
     padding: 9px 12px;
     font-size: 16px;
     outline: none;
-    
-    /* 强制纯白背景，防止被酒馆深色主题污染 */
     background-color: #FFFFFF !important;
     background-image: none !important;
     color: #000000 !important;
     opacity: 1 !important;
-    
     height: 38px;
     min-height: 38px;
     max-height: 100px;
@@ -317,12 +282,14 @@
     line-height: 1.3;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
     box-shadow: none !important;
+    -webkit-appearance: none !important;
 }
 
 .chat-input::placeholder {
     color: #8E8E93 !important;
-    opacity: 1;
+    opacity: 1 !important;
 }
+
 .send-btn {
     width: 28px; min-width: 28px; height: 28px; min-height: 28px;
     border-radius: 50%; background-color: #007AFF;
@@ -331,13 +298,11 @@
 }
 .send-btn svg { width: 15px; height: 15px; fill: white; transform: translate(1px, 1px); }
 
-/* 表情面板 */
 .sticker-panel { height: 250px; background-color: #e9e9eb; border-top: 0.5px solid #bdc5cd; transition: height 0.3s ease; overflow: hidden; display: flex; flex-direction: column; }
 .sticker-panel.hidden { height: 0; border-top: none; }
 .sticker-grid { flex: 1; overflow-y: auto; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-content: start; }
 .sticker-grid img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 8px; padding: 4px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-/* 小红点与时间戳 */
 .notification-dot {
     position: absolute; top: -4px; right: -4px; width: 14px; height: 14px;
     background-color: #E5E5EA; border: 3px solid #333; border-radius: 50%;
@@ -347,12 +312,6 @@
 .chat-timestamp { text-align: center; color: #8e8e93; font-size: 11px; font-weight: 500; margin: 24px 0 12px 0; font-family: "SF Pro Text", sans-serif; clear: both; }
 .unread-dot-indicator { display: inline-block; width: 8px; height: 8px; background-color: #007AFF; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
 
-/* =========================================
-   [NEW] iOS Settings UI (设置页专属样式)
-   重点修复：覆盖 ST 的全局暗黑样式
-   ========================================= */
-
-/* 列表容器 */
 .ios-list-group {
     background: white;
     border-top: 0.5px solid #c6c6c8;
@@ -362,25 +321,22 @@
     flex-direction: column;
 }
 
-/* 单行条目 */
 .ios-list-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px 12px 0; /* 右侧留空给 chevron */
+    padding: 12px 16px 12px 0;
     background: transparent;
     min-height: 44px;
     position: relative;
 }
 
-/* 标签文字 */
 .ios-label {
     font-size: 17px;
     color: #000;
     flex-shrink: 0;
 }
 
-/* 模拟 iOS 选择器容器 */
 .ios-select-wrapper {
     display: flex;
     align-items: center;
@@ -390,9 +346,7 @@
     position: relative;
 }
 
-/* 强制重置 Select 样式 */
 .ios-select-real {
-    /* 关键：清除默认外观 */
     -webkit-appearance: none !important;
     appearance: none !important;
     background-color: transparent !important;
@@ -401,23 +355,20 @@
     box-shadow: none !important;
     outline: none !important;
     
-    /* 文字样式 - 浅灰色 */
     color: #8e8e93 !important; 
     font-size: 17px !important;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
     text-align: right !important;
     text-align-last: right !important;
-    direction: rtl; /* 强制文字靠右 */
+    direction: rtl;
 
-    /* 布局 */
     width: 100%;
     max-width: 220px;
-    padding-right: 20px; /* 给箭头留位置 */
+    padding-right: 20px;
     cursor: pointer;
-    z-index: 2; /* 浮在箭头上面 */
+    z-index: 2;
 }
 
-/* 占位箭头图标 */
 .ios-chevron {
     position: absolute;
     right: 0;
@@ -425,7 +376,6 @@
     z-index: 1;
 }
 
-/* 底部说明文字 */
 .ios-footer-text {
     padding: 8px 16px;
     font-size: 13px;
