@@ -176,6 +176,29 @@
 
     // 4. UI 导出
     window.ST_PHONE.ui = {
+        closeChat: function() {
+            const pageChat = document.getElementById('page-chat');
+            const pageContacts = document.getElementById('page-contacts');
+            const stickerPanel = document.getElementById('sticker-panel');
+
+            // 1. 隐藏可能打开的表情面板
+            if(stickerPanel) stickerPanel.classList.add('hidden');
+
+            // 2. 切换页面动画：聊天页退出，联系人页进入
+            pageChat.classList.add('hidden-right');
+            pageChat.classList.remove('active');
+
+            pageContacts.classList.remove('hidden-left');
+            pageContacts.classList.add('active');
+
+            // 3. 清除当前活跃状态
+            window.ST_PHONE.state.activeContactId = null;
+            
+            // 4. 刷新联系人列表（更新未读状态和最后一条消息）
+            if (window.ST_PHONE.ui.renderContacts) {
+                window.ST_PHONE.ui.renderContacts();
+            }
+        },
         toggleWindow: function() {
             const windowEl = document.getElementById('st-phone-window');
             if (window.ST_PHONE.state.isDragging) {
