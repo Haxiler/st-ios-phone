@@ -213,11 +213,9 @@
     }
 
     window.ST_PHONE.scribe = {
-        sync: function(contacts) {
-            if (state.debounceTimer) clearTimeout(state.debounceTimer);
-            state.debounceTimer = setTimeout(() => { performSync(contacts); }, 2000);
-        },
-        getWorldBookList: fetchWorldBookList,
-        forceSync: () => performSync(window.ST_PHONE.state.contacts)
+    sync: function(contacts) {
+        performSync(contacts);
+    },
+    forceSync: () => performSync(window.ST_PHONE.state.contacts)
     };
 })();
