@@ -310,6 +310,9 @@ function initCore() {
 
             window.eventSource.on(window.event_types.GENERATION_STOPPED, () => {
                 console.log('📱 ST-Phone: 检测到生成结束，立即同步世界书');
+
+                scanChatHistory();
+                
                 if(window.ST_PHONE.scribe) window.ST_PHONE.scribe.forceSync();
             });
 
