@@ -213,9 +213,12 @@
     }
 
     window.ST_PHONE.scribe = {
-    sync: function(contacts) {
-        performSync(contacts);
-    },
-    forceSync: () => performSync(window.ST_PHONE.state.contacts)
+        sync: function(contacts) {
+            performSync(contacts);
+        },
+
+        getWorldBookList: fetchWorldBookList, 
+        
+        forceSync: () => performSync(window.ST_PHONE.state.contacts)
     };
 })();
