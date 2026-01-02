@@ -214,11 +214,6 @@
             window.ST_PHONE.state.contacts = contactList;
 
             if (window.ST_PHONE.ui.updateStatusBarTime) window.ST_PHONE.ui.updateStatusBarTime(window.ST_PHONE.state.virtualTime);
-
-            // 触发存档
-            if (window.ST_PHONE.scribe && typeof window.ST_PHONE.scribe.sync === 'function') {
-                try { window.ST_PHONE.scribe.sync(window.ST_PHONE.state.contacts); } catch(e) {}
-            }
             
             if (window.ST_PHONE.ui.renderContacts) {
                 const searchInput = document.getElementById('phone-search-bar');
@@ -286,14 +281,14 @@
         }
     }
 
-    function initCore() {
+function initCore() {
         const sendBtn = document.getElementById('btn-send');
         if(sendBtn) sendBtn.onclick = sendDraftToInput;
 
         scanChatHistory();
+        
+        initEventListeners(); 
 
-        // 【天眼系统】 MutationObserver
-        // 监控聊天框的变化，自动触发扫描，替代 EventSource
         const chatContainer = document.getElementById('chat');
         if (chatContainer) {
             const observer = new MutationObserver(debounce(() => {
@@ -306,11 +301,28 @@
                 characterData: true 
             });
         } else {
-            // 保底轮询
             setInterval(scanChatHistory, 2000);
         }
     }
 
+    function initEventListeners() {
+        if (window.eventSource) {
+
+            window.eventSource.on(window.event_types.GENERATION_STOPPED, () => {
+                console.log('📱 ST-Phone: 检测到生成结束，立即同步世界书');
+                if(window.ST_PHONE.scribe) window.ST_PHONE.scribe.forceSync();
+            });
+
+            window.eventSource.on(window.event_types.MESSAGE_RECEIVED, () => {
+                setTimeout(() => {
+                    if(window.ST_PHONE.scribe) window.ST_PHONE.scribe.forceSync();
+                }, 500);
+            });
+            console.log('📱 ST-Phone: 事件监听器挂载成功'); 
+        } else {
+            console.warn('ST-Phone: 未找到 eventSource，保持原有轮询机制');
+        }
+    }
     function debounce(func, wait) {
         let timeout;
         return function(...args) {
