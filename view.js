@@ -1,10 +1,10 @@
 // ==================================================================================
-// 模块: View (界面与交互) - v3.2 Input Fallback
+// 模块: View (界面与交互) - v3.3 Scribe Removed (Clean Version)
 // ==================================================================================
 (function() {
     if (document.getElementById('st-ios-phone-root')) return;
 
-    // 1. HTML 模板 (修改了 Settings 页结构)
+    // 1. HTML 模板 (已移除 Settings 页面及入口)
     const html = `
     <div id="st-ios-phone-root">
         <div id="st-phone-icon" title="打开/关闭手机">
@@ -21,12 +21,8 @@
                     
                     <div class="page active" id="page-contacts">
                         <div class="nav-bar ios-nav">
-                            <button class="nav-btn icon" id="btn-open-settings" title="设置">
-                                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                                </svg>
-                            </button>
+                            <button class="nav-btn icon" style="visibility:hidden; width: 22px; cursor: default;"></button>
+                            
                             <span class="nav-title">信息</span>
                             <button class="nav-btn icon" id="btn-add-friend" title="新对话">
                                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -78,36 +74,6 @@
                         </div>
                         <div id="sticker-panel" class="sticker-panel hidden">
                             <div class="sticker-grid" id="sticker-grid-container"></div>
-                        </div>
-                    </div>
-
-                    <div class="page hidden-right" id="page-settings" style="background-color: #f2f2f7;">
-                        <div class="nav-bar ios-nav">
-                            <button class="nav-btn back-btn" id="btn-settings-back">
-                                <svg viewBox="0 0 24 24" width="24" height="24" stroke="#007AFF" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                                <span>信息</span>
-                            </button>
-                            <span class="nav-title">设置</span>
-                            <div style="width: 40px;"></div>
-                        </div>
-                        <div style="padding: 20px 0;">
-                            <div class="section-title">存储设置</div>
-                            <div style="background: white; border-top: 0.5px solid #c6c6c8; border-bottom: 0.5px solid #c6c6c8; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 16px; color: #000;">存入世界书</span>
-                                    <select id="setting-worldbook-select" style="font-size: 15px; color: #007AFF; border: none; background: transparent; outline: none; text-align: right; max-width: 180px;">
-                                        <option value="">加载中...</option>
-                                    </select>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #efeff4; padding-top: 8px;">
-                                    <span style="font-size: 14px; color: #8e8e93;">或手动输入文件名:</span>
-                                    <input type="text" id="setting-worldbook-input" placeholder="例如: Phone_History" style="text-align: right; border: none; outline: none; font-size: 14px; color: #333; width: 150px; background: transparent;">
-                                </div>
-                            </div>
-                            <div style="padding: 8px 16px; font-size: 13px; color: #6d6d72;">
-                                优先使用下拉选择。如果列表为空，请在下方手动输入文件名（保存时会自动创建）。
-                                <br>自动匹配状态：<span id="auto-match-status">检测中...</span>
-                            </div>
                         </div>
                     </div>
 
@@ -365,124 +331,9 @@
             } else {
                 panel.classList.add('hidden');
             }
-        },
-
-        // --- 设置页逻辑 (修复版) ---
-        openSettings: async function() {
-            const pageContacts = document.getElementById('page-contacts');
-            const pageSettings = document.getElementById('page-settings');
-            const select = document.getElementById('setting-worldbook-select');
-            const input = document.getElementById('setting-worldbook-input');
-            const statusSpan = document.getElementById('auto-match-status');
-
-            // 1. 切换页面
-            pageContacts.classList.add('hidden-left');
-            pageContacts.classList.remove('active');
-            pageSettings.classList.remove('hidden-right');
-            pageSettings.classList.add('active');
-
-            // 2. 加载世界书列表
-            select.innerHTML = '<option value="">加载中...</option>';
-            
-            let worldBooks = [];
-            // 使用我们新的 Omni-Scanner 获取列表
-            if (window.ST_PHONE.scribe && window.ST_PHONE.scribe.getWorldBookList) {
-                worldBooks = await window.ST_PHONE.scribe.getWorldBookList();
-            }
-
-            select.innerHTML = '<option value="">(暂不存储)</option>';
-            
-            const uniqueBooks = [...new Set(worldBooks)];
-            uniqueBooks.forEach(name => {
-                if(!name) return;
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.innerText = name;
-                select.appendChild(opt);
-            });
-
-            // 3. 回显状态 (优先 input，其次 select)
-            let currentSelection = window.ST_PHONE.config.targetWorldBook;
-
-            // 4. 自动匹配逻辑
-            let matched = false;
-            if (!currentSelection) {
-                if (typeof SillyTavern !== 'undefined') {
-                    try {
-                        const context = SillyTavern.getContext();
-                        const charId = context.characterId;
-                        if (charId && SillyTavern.characters && SillyTavern.characters[charId]) {
-                            const charData = SillyTavern.characters[charId].data;
-                            const boundBook = charData.character_book;
-                            if (boundBook) {
-                                const boundName = (typeof boundBook === 'string') ? boundBook : boundBook.name;
-                                if (boundName) {
-                                    // 无论列表里有没有，都直接用这个绑定的名字
-                                    currentSelection = boundName;
-                                    window.ST_PHONE.config.targetWorldBook = currentSelection;
-                                    matched = true;
-                                    statusSpan.innerText = `已自动绑定: ${currentSelection}`;
-                                    statusSpan.style.color = '#007AFF';
-                                    
-                                    // 保存一次，确保 index.js 里的监听器能拿到
-                                    if(localStorage) {
-                                        localStorage.setItem('ST_PHONE_PREFS', JSON.stringify({ targetWorldBook: currentSelection }));
-                                    }
-                                }
-                            }
-                        }
-                    } catch(e) {}
-                }
-            }
-
-            if (!matched && !currentSelection) {
-                statusSpan.innerText = '未检测到角色绑定，请手动选择或输入';
-                statusSpan.style.color = '#8e8e93';
-            } else if (!matched) {
-                 statusSpan.innerText = `当前使用: ${currentSelection}`;
-                 statusSpan.style.color = '#007AFF';
-            }
-
-            // 5. 设置控件的值
-            if (currentSelection) {
-                // 如果这个值在列表里，就选下拉框
-                if (uniqueBooks.includes(currentSelection)) {
-                    select.value = currentSelection;
-                    input.value = '';
-                } else {
-                    // 如果不在列表里，就填输入框
-                    select.value = "";
-                    input.value = currentSelection;
-                }
-            }
-        },
-
-        closeSettings: function() {
-            const pageContacts = document.getElementById('page-contacts');
-            const pageSettings = document.getElementById('page-settings');
-            
-            pageSettings.classList.add('hidden-right');
-            pageSettings.classList.remove('active');
-            pageContacts.classList.remove('hidden-left');
-            pageContacts.classList.add('active');
-        },
-        
-        // 统一保存逻辑：Input 优先
-        saveSettings: function() {
-            const select = document.getElementById('setting-worldbook-select');
-            const input = document.getElementById('setting-worldbook-input');
-            
-            let val = input.value.trim();
-            if (!val) val = select.value;
-            
-            window.ST_PHONE.config.targetWorldBook = val;
-            console.log('📱 ST-iOS-Phone: 存储目标已更新为', val);
-            
-            // 手动触发 LocalStorage 保存 (因为 index.js 只监听了 select change)
-            if(localStorage) {
-                localStorage.setItem('ST_PHONE_PREFS', JSON.stringify({ targetWorldBook: val }));
-            }
         }
+        
+        // --- Settings 函数已移除 ---
     };
 
     // 事件绑定
@@ -492,16 +343,7 @@
     });
     document.getElementById('btn-back').onclick = window.ST_PHONE.ui.closeChat;
     
-    // --- 新增：设置页事件绑定 ---
-    document.getElementById('btn-open-settings').onclick = window.ST_PHONE.ui.openSettings;
-    document.getElementById('btn-settings-back').onclick = window.ST_PHONE.ui.closeSettings;
-    
-    // 两个输入控件变动都触发保存
-    document.getElementById('setting-worldbook-select').addEventListener('change', (e) => {
-        document.getElementById('setting-worldbook-input').value = ''; // 清空输入框
-        window.ST_PHONE.ui.saveSettings();
-    });
-    document.getElementById('setting-worldbook-input').addEventListener('input', window.ST_PHONE.ui.saveSettings);
+    // --- 已移除 Settings 相关事件绑定 ---
 
     // 其余逻辑保持不变...
     document.getElementById('phone-search-bar').addEventListener('input', (e) => {
