@@ -1,5 +1,5 @@
 // ==================================================================================
-// 模块: Core (核心逻辑 - v3.6 MutationObserver)
+// 模块: Core (核心逻辑 - v3.7 Auto-Sync Trigger)
 // ==================================================================================
 (function() {
     // 1. 稳健启动：等待 #chat 容器出现
@@ -85,6 +85,7 @@
             let lastParsedSmsWasMine = false;
             let newContactsMap = new Map();
 
+            // --- 扫描聊天记录 ---
             chat.forEach(msg => {
                 if (!msg.mes) return;
                 const cleanMsg = msg.mes.replace(/```/g, ''); 
@@ -127,6 +128,7 @@
                     }
                     const contact = newContactsMap.get(contactName);
 
+                    // 简单去重
                     const lastMsgInHistory = contact.messages[contact.messages.length - 1];
                     if (isMyMessage && lastMsgInHistory && lastMsgInHistory.sender === 'user' && lastMsgInHistory.text === content) return; 
 
@@ -144,7 +146,7 @@
                 });
             });
 
-            // 更新未读
+            // 更新未读状态
             newContactsMap.forEach((contact, id) => {
                 const oldContact = cachedContactsMap.get(id);
                 const isCountIncreased = !oldContact || contact.messages.length > oldContact.messages.length;
@@ -159,21 +161,32 @@
             cachedContactsMap = newContactsMap;
             if (latestNarrativeTime) window.ST_PHONE.state.virtualTime = latestNarrativeTime;
 
-            // 变化检测
+            // --- 变化检测与触发逻辑 (关键修改区域) ---
             if (lastXmlMsgCount === -1) {
                 lastXmlMsgCount = currentXmlMsgCount;
             } else {
                 if (currentXmlMsgCount > lastXmlMsgCount) {
+                    // [Case A] 消息增加：可能有新消息，清理 Pending，播放提示音
                     window.ST_PHONE.state.pendingQueue = [];
                     if (!lastParsedSmsWasMine && !window.ST_PHONE.state.isPhoneOpen) {
                         if (window.ST_PHONE.ui.setNotification) window.ST_PHONE.ui.setNotification(true);
                         if (window.ST_PHONE.ui.playNotificationSound) window.ST_PHONE.ui.playNotificationSound();
                     }
+                } else if (currentXmlMsgCount < lastXmlMsgCount) {
+                    // [Case B] 消息减少：【检测到删除行为】 -> 立即触发同步
+                    // 这里不需要等 generation_stopped，因为这是用户手动删除/回退操作
+                    console.log('📱 ST-Phone: 检测到消息删除/回退，立即执行世界书清理...');
+                    if (window.ST_PHONE.scribe && window.ST_PHONE.scribe.forceSync) {
+                         // 我们给 50ms 缓冲，确保数据结构稳定
+                         setTimeout(() => window.ST_PHONE.scribe.forceSync(), 50);
+                    }
                 }
+                
+                // 无论增加还是减少，都更新计数器
                 lastXmlMsgCount = currentXmlMsgCount;
             }
 
-            // Pending 处理
+            // Pending 处理 (用户刚发完还没进历史的消息)
             const queue = window.ST_PHONE.state.pendingQueue;
             const now = Date.now();
             const MAX_PENDING_TIME = 600000; 
@@ -213,6 +226,7 @@
             contactList.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
             window.ST_PHONE.state.contacts = contactList;
 
+            // 更新 UI
             if (window.ST_PHONE.ui.updateStatusBarTime) window.ST_PHONE.ui.updateStatusBarTime(window.ST_PHONE.state.virtualTime);
             
             if (window.ST_PHONE.ui.renderContacts) {
@@ -237,19 +251,17 @@
         const input = document.getElementById('msg-input'); 
         if (!input) return;
         
-        let text = input.value.trim(); // 使用 let 以便修改
+        let text = input.value.trim(); 
         const activeId = window.ST_PHONE.state.activeContactId;
         
         if (!text || !activeId) return;
 
-        // 【修复XML注入】：将英文管道符替换为中文全角竖线，防止破坏 XML 结构
         text = text.replace(/\|/g, '｜');
 
         let contact = window.ST_PHONE.state.contacts.find(c => c.id === activeId);
         const targetName = contact ? contact.name : activeId;
         const timeToSend = window.ST_PHONE.state.virtualTime;
         
-        // 构建 XML
         const xmlString = `<msg>{{user}}|${targetName}|${text}|${timeToSend}</msg>`;
 
         try {
@@ -259,21 +271,17 @@
                 const prefix = currentContent ? '\n' : '';
                 mainTextArea.value = currentContent + prefix + xmlString + '\n';
                 
-                // 触发酒馆输入框的事件，确保数据被捕获
                 mainTextArea.dispatchEvent(new Event('input', { bubbles: true }));
                 mainTextArea.focus();
                 mainTextArea.scrollTop = mainTextArea.scrollHeight; 
 
-                // 加入待发送队列
                 window.ST_PHONE.state.pendingQueue.push({
                     text: text, target: targetName, sendTime: Date.now()
                 });
                 window.ST_PHONE.state.lastUserSendTime = Date.now();
                 
-                // 清空手机输入框
                 input.value = '';
                 
-                // 立即触发扫描更新 UI
                 scanChatHistory(); 
             }
         } catch (e) {
@@ -281,7 +289,7 @@
         }
     }
 
-function initCore() {
+    function initCore() {
         const sendBtn = document.getElementById('btn-send');
         if(sendBtn) sendBtn.onclick = sendDraftToInput;
 
@@ -289,6 +297,7 @@ function initCore() {
         
         initEventListeners(); 
 
+        // MutationObserver 监听 DOM 变动 (包括删除)
         const chatContainer = document.getElementById('chat');
         if (chatContainer) {
             const observer = new MutationObserver(debounce(() => {
@@ -307,15 +316,14 @@ function initCore() {
 
     function initEventListeners() {
         if (window.eventSource) {
-
+            // 生成结束时同步 (常规)
             window.eventSource.on(window.event_types.GENERATION_STOPPED, () => {
-                console.log('📱 ST-Phone: 检测到生成结束，立即同步世界书');
-
+                console.log('📱 ST-Phone: 生成结束，执行同步');
                 scanChatHistory();
-                
                 if(window.ST_PHONE.scribe) window.ST_PHONE.scribe.forceSync();
             });
 
+            // 收到消息时 (辅助)
             window.eventSource.on(window.event_types.MESSAGE_RECEIVED, () => {
                 setTimeout(() => {
                     if(window.ST_PHONE.scribe) window.ST_PHONE.scribe.forceSync();
@@ -326,6 +334,7 @@ function initCore() {
             console.warn('ST-Phone: 未找到 eventSource，保持原有轮询机制');
         }
     }
+    
     function debounce(func, wait) {
         let timeout;
         return function(...args) {
