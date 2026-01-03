@@ -18,8 +18,7 @@ var scriptTag = document.currentScript || (function() {
     const fullUrl = scriptTag.src;
     const EXTENSION_PATH = fullUrl.substring(0, fullUrl.lastIndexOf('/') + 1);
     
-    // 定义加载顺序：配置 -> 界面 -> 逻辑 -> 书记员
-    const modules = ["config.js", "view.js", "core.js", "scribe.js"];
+    const modules = ["config.js", "view.js", "core.js"];
 
     // 1. 初始化全局命名空间
     window.ST_PHONE = window.ST_PHONE || {
@@ -71,20 +70,6 @@ var scriptTag = document.currentScript || (function() {
         // 注意：View 加载完后，DOM 元素才存在
         for (let i = 1; i < modules.length; i++) {
             await loadScript(modules[i]);
-        }
-
-        // 3. 挂载持久化监听器 (Auto-Save)
-        // 因为 View 已经加载完毕，我们可以获取到设置页面的 DOM 元素了
-        const settingSelect = document.getElementById('setting-worldbook-select');
-        if (settingSelect) {
-            // 监听“change”事件，一旦用户改了选项，就写入 LocalStorage
-            settingSelect.addEventListener('change', (e) => {
-                const newPref = {
-                    targetWorldBook: e.target.value
-                };
-                localStorage.setItem('ST_PHONE_PREFS', JSON.stringify(newPref));
-                console.log('📱 [System] 配置已自动保存到本地');
-            });
         }
 
         console.log('📱 ST-iOS-Phone: 系统启动成功！所有模块已就绪。');
