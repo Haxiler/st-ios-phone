@@ -52,6 +52,12 @@ function createEntry(contactName, comment, content) {
     };
 }
 
+// --- 新增：获取世界书列表 (供 View 层调用) ---
+function getWorldBookList() {
+    // 返回酒馆全局变量中的世界书名称列表
+    return window.world_names || [];
+}
+
 // --- 核心同步逻辑 (Native) ---
 
 async function performSync(contacts) {
@@ -229,7 +235,9 @@ if (window.ST_PHONE) {
             if (window.ST_PHONE.state && window.ST_PHONE.state.contacts) {
                 performSync(window.ST_PHONE.state.contacts);
             }
-        }
+        },
+        // 【关键修复】新增导出getWorldBookList
+        getWorldBookList: getWorldBookList
     };
     console.log('📱 ST-Phone: Scribe 模块 (Native) 已挂载');
 }
