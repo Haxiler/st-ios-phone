@@ -1,33 +1,31 @@
 // ==================================================================================
-// 模块: View (界面交互 - v4.0 Event-Driven UI)
+// 模块: View (界面与交互) - v3.1 UI Polish (Settings Fix)
 // ==================================================================================
 (function() {
-    const ST = window.ST_PHONE;
-    
-    // 防止重复注入
     if (document.getElementById('st-ios-phone-root')) return;
 
-    // --- HTML 结构 (保持原汁原味，增加了部分 ID 钩子) ---
+    // 1. HTML 模板 (设置页已彻底重构)
     const html = `
     <div id="st-ios-phone-root" style="position: relative; z-index: 20000;">
         <div id="st-phone-icon" title="打开/关闭手机">
             <div id="st-notification-dot" class="notification-dot"></div>
             <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
         </div>
-
-        <div id="st-phone-window" style="display: none;">
+        <div id="st-phone-window">
             <div class="phone-notch-area" id="phone-drag-handle">
                 <div id="status-bar-time">12:00</div>
                 <div class="phone-notch"></div>
             </div>
-            
             <div class="app-container">
                 <div class="pages-wrapper">
                     
                     <div class="page active" id="page-contacts">
                         <div class="nav-bar ios-nav">
                             <button class="nav-btn icon" id="btn-open-settings" title="设置">
-                                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                </svg>
                             </button>
                             <span class="nav-title">信息</span>
                             <button class="nav-btn icon" id="btn-add-friend" title="新对话">
@@ -40,15 +38,14 @@
                                 <input type="text" id="phone-search-bar" placeholder="搜索">
                             </div>
                         </div>
-                        <div class="contact-list" id="contact-list-container">
-                            </div>
+                        <div class="contact-list" id="contact-list-container"></div>
                     </div>
 
                     <div class="page hidden-bottom" id="page-new-msg">
                         <div class="nav-bar ios-nav">
                             <button class="nav-btn text-btn" id="btn-cancel-new">取消</button>
                             <span class="nav-title">新信息</span>
-                            <div style="width:40px"></div>
+                            <button class="nav-btn" style="visibility:hidden; width: 40px"></button>
                         </div>
                         <div class="to-row">
                             <span class="to-label">收件人:</span>
@@ -67,7 +64,7 @@
                             <div class="nav-title-group">
                                 <span class="nav-title-small" id="chat-title">用户</span>
                             </div>
-                            <div style="width:40px"></div>
+                            <button class="nav-btn" style="visibility:hidden; width: 40px"></button>
                         </div>
                         <div class="chat-scroll-area" id="chat-messages-container"></div>
                         <div class="input-area">
@@ -95,6 +92,7 @@
                         </div>
                         <div style="padding: 20px 0;">
                             <div class="section-title">存储设置</div>
+                            
                             <div class="ios-list-group">
                                 <div class="ios-list-item">
                                     <span class="ios-label">存入世界书</span>
@@ -107,184 +105,110 @@
                                 </div>
                             </div>
                             <div class="ios-footer-text">
-                                推荐留空。系统会自动检测并使用当前角色卡绑定的世界书（Embedded/Global）。
+                                推荐留空。系统会自动检测并使用当前角色卡绑定的世界书（Embedded/Global），为您自动创建短信条目。<br/>
+                                <br/>仅当您希望将所有不同角色的短信强行归档到同一本全局世界书时，才需在此手动选择。
                             </div>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
     </div>
     `;
 
-    // 插入 DOM
     const div = document.createElement('div');
     div.innerHTML = html;
     document.body.appendChild(div);
 
-    // --- 工具类 ---
+    // 2. 拖拽逻辑 (保持不变)
+    function makeDraggable(element, handle) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        handle.onmousedown = dragMouseDown;
+        function dragMouseDown(e) {
+            e.preventDefault();
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            window.ST_PHONE.state.isDragging = false; 
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+        function elementDrag(e) {
+            e.preventDefault();
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            window.ST_PHONE.state.isDragging = true;
+            element.style.top = (element.offsetTop - pos2) + "px";
+            element.style.left = (element.offsetLeft - pos1) + "px";
+        }
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+    const phoneWindow = document.getElementById("st-phone-window");
+    const dragHandle = document.getElementById("phone-drag-handle");
+    const phoneIcon = document.getElementById("st-phone-icon");
+    if(phoneWindow && dragHandle) makeDraggable(phoneWindow, dragHandle);
+    if(phoneIcon) makeDraggable(phoneIcon, phoneIcon);
+
+    // 3. 辅助：渲染消息
     function renderMessageContent(text) {
         if(!text) return '';
-        const stickers = ST.config.stickers || [];
-        // 表情包替换
-        let html = text.replace(/\[bqb-(\d+)\]/g, (match, indexStr) => {
+        const bqbRegex = /\[bqb-(\d+)\]/g; 
+        let html = text.replace(bqbRegex, (match, indexStr) => {
             const index = parseInt(indexStr);
+            const stickers = window.ST_PHONE.config.stickers || [];
             const sticker = stickers[index]; 
             if (sticker) {
-                 return `<img src="${sticker.url}" alt="${sticker.label}" class="sticker-img" loading="lazy" />`;
+                 return `<img src="${sticker.url}" alt="${sticker.label || indexStr}" class="sticker-img" loading="lazy" />`;
             }
             return ''; 
         });
-        // Markdown 图片兼容
-        html = html.replace(/!\[.*?\]\((.*?)\)/g, '<img src="$1" alt="sticker" loading="lazy" />');
+        const invalidBqbRegex = /\[bqb-([^\]\d]+)\]/g;
+        html = html.replace(invalidBqbRegex, '');
+        const mdImgRegex = /!\[.*?\]\((.*?)\)/g;
+        html = html.replace(mdImgRegex, '<img src="$1" alt="sticker" loading="lazy" />');
         return html;
     }
 
-    // --- UI 逻辑控制器 ---
-    ST.ui = {
-        // 1. 列表渲染 (全量，但频率低)
-        renderContacts: function(contactsOverride = null) {
-            const container = document.getElementById('contact-list-container');
-            const contacts = contactsOverride || ST.store.contacts;
+    // 4. UI 导出
+    window.ST_PHONE.ui = {
+        closeChat: function() {
+            const pageChat = document.getElementById('page-chat');
+            const pageContacts = document.getElementById('page-contacts');
+            const stickerPanel = document.getElementById('sticker-panel');
+
+            // 1. 隐藏可能打开的表情面板
+            if(stickerPanel) stickerPanel.classList.add('hidden');
+
+            // 2. 切换页面动画：聊天页退出，联系人页进入
+            pageChat.classList.add('hidden-right');
+            pageChat.classList.remove('active');
+
+            pageContacts.classList.remove('hidden-left');
+            pageContacts.classList.add('active');
+
+            // 3. 清除当前活跃状态
+            window.ST_PHONE.state.activeContactId = null;
             
-            container.innerHTML = ''; // 列表页简单清空即可，性能影响小
-            if (!contacts || contacts.length === 0) {
-                container.innerHTML = `<div style="padding-top: 150px; text-align: center; color: #8e8e93; font-size: 14px">暂无消息</div>`;
+            // 4. 刷新联系人列表（更新未读状态和最后一条消息）
+            if (window.ST_PHONE.ui.renderContacts) {
+                window.ST_PHONE.ui.renderContacts();
+            }
+        },
+        toggleWindow: function() {
+            const windowEl = document.getElementById('st-phone-window');
+            if (window.ST_PHONE.state.isDragging) {
+                window.ST_PHONE.state.isDragging = false;
                 return;
             }
-            
-            contacts.forEach(contact => {
-                const el = document.createElement('div');
-                el.className = 'contact-item';
-                // 蓝点
-                const unreadDot = contact.hasUnread ? `<div class="unread-dot-indicator"></div>` : '';
-                el.innerHTML = `
-                    <div class="info">
-                        <div class="name-row">
-                            <span class="name">${contact.name}${unreadDot}</span>
-                            <span class="time">${contact.time}</span>
-                        </div>
-                        <div class="preview">${contact.lastMsg}</div>
-                    </div>
-                `;
-                el.onclick = () => ST.ui.openChat(contact);
-                container.appendChild(el);
-            });
-        },
-
-        // 2. 聊天渲染 (核心：增量更新)
-        updateChat: function(contact) {
-            const container = document.getElementById('chat-messages-container');
-            if (!container) return;
-
-            // 如果是切换联系人，清空
-            if (container.dataset.contactId !== contact.id) {
-                container.innerHTML = '';
-                container.dataset.contactId = contact.id;
-                // 垫片
-                container.appendChild(document.createElement('div')).style.height = '10px';
-            }
-
-            // 获取已渲染的最后一条时间戳
-            let lastTimestamp = parseInt(container.dataset.lastTs || '0');
-            const messages = contact.messages || [];
-            const newMessages = messages.filter(m => m.timestamp > lastTimestamp || (m.timestamp === lastTimestamp && !m.rendered));
-            
-            // 如果没有新消息，退出
-            if (newMessages.length === 0) return;
-
-            // 智能滚动判定
-            const threshold = 100;
-            const isNearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) <= threshold;
-            const isFirstLoad = lastTimestamp === 0;
-
-            let lastRenderedDateStr = container.dataset.lastDateStr || '';
-
-            newMessages.forEach(msg => {
-                // 时间分割线逻辑
-                let showTime = false;
-                if (!lastRenderedDateStr || msg.dateStr !== lastRenderedDateStr) showTime = true;
-                if (msg.timestamp - lastTimestamp > 15 * 60 * 1000) showTime = true; // 15分钟间隔
-
-                if (showTime) {
-                    const t = document.createElement('div');
-                    t.className = 'chat-timestamp';
-                    t.innerText = msg.timeStr;
-                    container.appendChild(t);
-                    lastRenderedDateStr = msg.dateStr;
-                }
-
-                const bubble = document.createElement('div');
-                bubble.className = `message-bubble ${msg.sender === 'user' ? 'sent' : 'received'}`;
-                bubble.innerHTML = renderMessageContent(msg.text);
-                container.appendChild(bubble);
-
-                lastTimestamp = msg.timestamp;
-                // 标记该消息对象已渲染(防止时间戳完全相同的重复)
-                msg.rendered = true;
-            });
-
-            // 更新容器状态
-            container.dataset.lastTs = lastTimestamp;
-            container.dataset.lastDateStr = lastRenderedDateStr;
-
-            // 滚动
-            if (isFirstLoad || isNearBottom) {
-                requestAnimationFrame(() => {
-                    container.scrollTop = container.scrollHeight;
-                });
-            }
-        },
-
-        openChat: function(contact) {
-            ST.store.activeContactId = contact.id;
-            
-            // UI 切换
-            document.getElementById('page-contacts').classList.add('hidden-left');
-            document.getElementById('page-contacts').classList.remove('active');
-            
-            const chatPage = document.getElementById('page-chat');
-            chatPage.classList.remove('hidden-right');
-            chatPage.classList.add('active');
-            
-            document.getElementById('chat-title').innerText = contact.name;
-            document.getElementById('sticker-panel').classList.add('hidden'); // 默认收起表情
-
-            // 清除未读
-            ST.store.unreadIds.delete(contact.id);
-            contact.hasUnread = false; 
-            ST.ui.setNotification(ST.store.unreadIds.size > 0);
-
-            // 渲染
-            ST.ui.updateChat(contact);
-        },
-
-        closeChat: function() {
-            ST.store.activeContactId = null;
-            
-            const chatPage = document.getElementById('page-chat');
-            chatPage.classList.add('hidden-right');
-            chatPage.classList.remove('active');
-
-            const contactPage = document.getElementById('page-contacts');
-            contactPage.classList.remove('hidden-left');
-            contactPage.classList.add('active');
-
-            // 刷新联系人列表以移除蓝点
-            ST.ui.renderContacts();
-        },
-
-        toggleWindow: function() {
-            if (ST.store.isDragging) return;
-            const win = document.getElementById('st-phone-window');
-            ST.store.isPhoneOpen = !ST.store.isPhoneOpen;
-            win.style.display = ST.store.isPhoneOpen ? 'block' : 'none';
-            
-            if (ST.store.isPhoneOpen) {
-                // 刷新时间
-                ST.ui.updateStatusBar(ST.store.virtualTime);
-                ST.ui.renderContacts();
-            }
+            window.ST_PHONE.state.isPhoneOpen = !window.ST_PHONE.state.isPhoneOpen;
+            windowEl.style.display = window.ST_PHONE.state.isPhoneOpen ? 'block' : 'none';
+            if (window.ST_PHONE.state.isPhoneOpen) this.setNotification(false);
+            return window.ST_PHONE.state.isPhoneOpen;
         },
 
         setNotification: function(active) {
@@ -292,173 +216,329 @@
             if (dot) dot.classList.toggle('active', active);
         },
 
-        updateStatusBar: function(timeStr) {
+        playNotificationSound: function() {
+            if (window.ST_PHONE.path) {
+                const audio = new Audio(window.ST_PHONE.path + 'ding.mp3');
+                audio.volume = 0.6; 
+                audio.play().catch(e => console.log('声音播放被拦截', e));
+            }
+        },
+
+        updateStatusBarTime: function(timeStr) {
             const el = document.getElementById('status-bar-time');
             if (el && timeStr) el.innerText = timeStr;
         },
 
-        playSound: function() {
-            if (ST.path) {
-                const audio = new Audio(ST.path + 'ding.mp3');
-                audio.volume = 0.5;
-                audio.play().catch(() => {});
+        renderContacts: function(contactsOverride = null) {
+            const container = document.getElementById('contact-list-container');
+            const contacts = contactsOverride || window.ST_PHONE.state.contacts;
+            container.innerHTML = '';
+            if (contacts.length === 0) {
+                container.innerHTML = `<div style="padding-top: 150px; text-align: center; color: #8e8e93;"><div style="font-size: 24px; margin-bottom: 8px;">无结果</div></div>`;
+                return;
             }
-        },
-
-        // 贴纸面板懒加载
-        initStickers: function() {
-            const container = document.getElementById('sticker-grid-container');
-            if (container.children.length > 0) return; // 已加载
-
-            const stickers = ST.config.stickers || [];
-            const fragment = document.createDocumentFragment();
-            
-            stickers.forEach((s, index) => {
-                const img = document.createElement('img');
-                img.src = s.url; // 这里不懒加载，因为是面板
-                img.title = s.label;
-                img.onclick = () => {
-                    const input = document.getElementById('msg-input');
-                    // 插入标签
-                    input.value += `[bqb-${index}]`; 
-                    // 自动发送？还是让用户点发送？通常表情包直接发送体验更好
-                    // 这里我们模拟点击发送
-                    ST.emit('send-message', `[bqb-${index}]`);
-                    input.value = '';
-                    document.getElementById('sticker-panel').classList.add('hidden');
-                };
-                fragment.appendChild(img);
+            contacts.forEach(contact => {
+                const el = document.createElement('div');
+                el.className = 'contact-item';
+                const unreadDot = contact.hasUnread ? `<div class="unread-dot-indicator"></div>` : '';
+                el.innerHTML = `
+                    <div class="info">
+                        <div class="name-row">
+                            <span class="name">
+                                ${contact.name}
+                                ${unreadDot}
+                            </span>
+                            <span class="time">${contact.time}</span>
+                        </div>
+                        <div class="preview">${contact.lastMsg}</div>
+                    </div>
+                `;
+                el.onclick = () => window.ST_PHONE.ui.openChat(contact);
+                container.appendChild(el);
             });
-            container.appendChild(fragment);
         },
         
-        // 设置逻辑
-        loadWorldBooks: async function() {
+        renderChat: function(contact, forceScroll = false) {
+            const container = document.getElementById('chat-messages-container');
+            if(!container) return;
+            
+            const threshold = 60; 
+            const currentScrollTop = container.scrollTop;
+            const currentScrollHeight = container.scrollHeight;
+            const clientHeight = container.clientHeight;
+            const isNearBottom = (currentScrollHeight - currentScrollTop - clientHeight) <= threshold;
+            const isFirstLoad = container.children.length === 0;
+
+            container.innerHTML = '';
+            container.appendChild(document.createElement('div')).style.height = '10px';
+            
+            let lastRenderedTimestamp = 0;
+            let lastRenderedDateStr = '';
+            const TIME_GAP = 15 * 60 * 1000; 
+
+            contact.messages.forEach((msg, index) => {
+                let showTimestamp = false;
+                if (index === 0) showTimestamp = true;
+                if (msg.dateStr && msg.dateStr !== lastRenderedDateStr) showTimestamp = true;
+                if (!showTimestamp && lastRenderedTimestamp > 0 && msg.timestamp > 0) {
+                    if (msg.timestamp - lastRenderedTimestamp > TIME_GAP) {
+                        showTimestamp = true;
+                    }
+                }
+
+                if (showTimestamp) {
+                    const timeEl = document.createElement('div');
+                    timeEl.className = 'chat-timestamp';
+                    timeEl.innerText = msg.timeStr; 
+                    container.appendChild(timeEl);
+                    lastRenderedTimestamp = msg.timestamp;
+                    lastRenderedDateStr = msg.dateStr;
+                }
+
+                const el = document.createElement('div');
+                el.className = `message-bubble ${msg.sender === 'user' ? 'sent' : 'received'} ${msg.isPending ? 'pending' : ''}`;
+                el.innerHTML = renderMessageContent(msg.text);
+                container.appendChild(el);
+            });
+
+            setTimeout(() => {
+                const newHeight = container.scrollHeight;
+                if (forceScroll || isNearBottom || isFirstLoad) {
+                    container.scrollTop = newHeight;
+                } else {
+                    container.scrollTop = currentScrollTop;
+                }
+            }, 0);
+        },
+
+        openChat: function(contact) {
+            // 1. 设置当前活跃联系人
+            window.ST_PHONE.state.activeContactId = contact.id;
+
+            // 2. 从未读集合中移除该ID
+            if (window.ST_PHONE.state.unreadIds) {
+                window.ST_PHONE.state.unreadIds.delete(contact.id);
+            }
+
+            // 【关键修复】手动强制更新当前联系人对象的未读状态
+            // 这样 renderContacts 渲染时就能立即读取到 false，而不用等 core.js 下一次扫描
+            contact.hasUnread = false; 
+
+            // 3. 重新渲染通讯录（此时蓝点会立即消失）
+            window.ST_PHONE.ui.renderContacts();
+
+            // 4. 初始化聊天界面
+            document.getElementById('chat-title').innerText = contact.name;
+            window.ST_PHONE.ui.renderChat(contact, true);
+            
+            // 5. 切换视图
+            document.getElementById('sticker-panel').classList.add('hidden');
+            document.getElementById('page-contacts').classList.add('hidden-left');
+            document.getElementById('page-contacts').classList.remove('active');
+            document.getElementById('page-chat').classList.remove('hidden-right');
+            document.getElementById('page-chat').classList.add('active');
+        },
+        toggleNewMsgSheet: function(show) {
+            const sheet = document.getElementById('page-new-msg');
+            const input = document.getElementById('new-msg-input');
+            const suggestions = document.getElementById('new-msg-suggestions');
+            if (show) {
+                sheet.classList.add('modal-active');
+                sheet.classList.remove('hidden-bottom');
+                input.value = '';
+                input.focus();
+                suggestions.innerHTML = '';
+                window.ST_PHONE.state.contacts.forEach(contact => {
+                     const el = document.createElement('div');
+                    el.className = 'contact-item';
+                    el.innerHTML = `<div class="info"><div class="name-row"><span class="name">${contact.name}</span></div></div>`;
+                    el.onclick = () => {
+                        window.ST_PHONE.ui.toggleNewMsgSheet(false);
+                        window.ST_PHONE.ui.openChat(contact);
+                    };
+                    suggestions.appendChild(el);
+                });
+            } else {
+                sheet.classList.remove('modal-active');
+                sheet.classList.add('hidden-bottom');
+            }
+        },
+        openChatByName: function(name) {
+            let contact = window.ST_PHONE.state.contacts.find(c => c.name === name);
+            if (!contact) {
+                contact = { id: name, name: name, lastMsg: '', time: '', messages: [] };
+                window.ST_PHONE.state.contacts.push(contact);
+            }
+            window.ST_PHONE.ui.toggleNewMsgSheet(false);
+            window.ST_PHONE.ui.openChat(contact);
+        },
+        toggleStickerPanel: function() {
+            const panel = document.getElementById('sticker-panel');
+            const container = document.getElementById('sticker-grid-container');
+            const isHidden = panel.classList.contains('hidden');
+            
+            if (isHidden) {
+                if (container.children.length === 0) {
+                    const stickers = window.ST_PHONE.config.stickers || [];
+                    stickers.forEach((s, index) => {
+                        const img = document.createElement('img');
+                        img.src = s.url;
+                        img.title = s.label; 
+                        img.onclick = () => {
+                            const input = document.getElementById('msg-input');
+                            input.value = `[bqb-${index}]`; 
+                            const sendBtn = document.getElementById('btn-send');
+                            if(sendBtn) sendBtn.click();
+                            panel.classList.add('hidden');
+                        };
+                        container.appendChild(img);
+                    });
+                }
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        },
+
+        // --- 设置页逻辑 (UI更新: 移除Input逻辑) ---
+        openSettings: async function() {
+            const pageContacts = document.getElementById('page-contacts');
+            const pageSettings = document.getElementById('page-settings');
             const select = document.getElementById('setting-worldbook-select');
+
+            // 1. 切换页面
+            pageContacts.classList.add('hidden-left');
+            pageContacts.classList.remove('active');
+            pageSettings.classList.remove('hidden-right');
+            pageSettings.classList.add('active');
+
+            // 2. 加载世界书列表
+            select.innerHTML = '<option value="">加载中...</option>';
+            
+            let worldBooks = [];
+            if (window.ST_PHONE.scribe && window.ST_PHONE.scribe.getWorldBookList) {
+                worldBooks = await window.ST_PHONE.scribe.getWorldBookList();
+            }
+
             select.innerHTML = '<option value="">(推荐：自动跟随)</option>';
             
-            if (ST.scribe && ST.scribe.getWorldBookList) {
-               // 暂不支持获取列表 API，此处保留接口
+            const uniqueBooks = [...new Set(worldBooks)];
+            uniqueBooks.forEach(name => {
+                if(!name) return;
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.innerText = name;
+                select.appendChild(opt);
+            });
+
+            // 3. 回显状态
+            const currentSelection = window.ST_PHONE.config.targetWorldBook;
+            if (currentSelection && uniqueBooks.includes(currentSelection)) {
+                select.value = currentSelection;
+            } else {
+                select.value = "";
             }
-            // 回显
-            select.value = ST.config.targetWorldBook || "";
+        },
+
+        closeSettings: function() {
+            const pageContacts = document.getElementById('page-contacts');
+            const pageSettings = document.getElementById('page-settings');
+            
+            pageSettings.classList.add('hidden-right');
+            pageSettings.classList.remove('active');
+            pageContacts.classList.remove('hidden-left');
+            pageContacts.classList.add('active');
+        },
+        
+        saveSettings: function() {
+            const select = document.getElementById('setting-worldbook-select');
+            let val = select.value;
+            window.ST_PHONE.config.targetWorldBook = val;
+            
+            if(localStorage) {
+                localStorage.setItem('ST_PHONE_PREFS', JSON.stringify({ targetWorldBook: val }));
+            }
         }
     };
 
-    // --- 事件绑定 & 拖拽 ---
-    
-    // 1. 拖拽逻辑 (复用旧代码，功能完好)
-    function makeDraggable(element, handle) {
-        let pos1=0, pos2=0, pos3=0, pos4=0;
-        handle.onmousedown = dragMouseDown;
-        function dragMouseDown(e) {
-            e.preventDefault();
-            pos3 = e.clientX; pos4 = e.clientY;
-            ST.store.isDragging = false;
-            document.onmouseup = closeDragElement;
-            document.onmousemove = elementDrag;
-        }
-        function elementDrag(e) {
-            e.preventDefault();
-            pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY;
-            pos3 = e.clientX; pos4 = e.clientY;
-            ST.store.isDragging = true;
-            element.style.top = (element.offsetTop - pos2) + "px";
-            element.style.left = (element.offsetLeft - pos1) + "px";
-        }
-        function closeDragElement() {
-            document.onmouseup = null; document.onmousemove = null;
-            setTimeout(() => ST.store.isDragging = false, 100);
-        }
+    // 事件绑定
+    const icon = document.getElementById('st-phone-icon');
+    if(icon) {
+        icon.addEventListener('click', () => {
+            const isOpen = window.ST_PHONE.ui.toggleWindow();
+            if(isOpen) document.dispatchEvent(new Event('st-phone-opened'));
+        });
     }
-    const win = document.getElementById("st-phone-window");
-    const icon = document.getElementById("st-phone-icon");
-    if(win) makeDraggable(win, document.getElementById("phone-drag-handle"));
-    if(icon) makeDraggable(icon, icon);
 
-    // 2. 按钮点击
-    icon.onclick = ST.ui.toggleWindow;
-    document.getElementById('btn-back').onclick = ST.ui.closeChat;
+    document.getElementById('btn-back').onclick = window.ST_PHONE.ui.closeChat;
+    document.getElementById('btn-open-settings').onclick = window.ST_PHONE.ui.openSettings;
+    document.getElementById('btn-settings-back').onclick = window.ST_PHONE.ui.closeSettings;
     
-    document.getElementById('btn-send').onclick = () => {
-        const input = document.getElementById('msg-input');
-        const text = input.value.trim();
-        if(text) {
-            ST.emit('send-message', text);
-            input.value = '';
-            input.style.height = '38px';
-        }
-    };
+    // 只有 Select 变动触发保存，Input 已移除
+    document.getElementById('setting-worldbook-select').addEventListener('change', window.ST_PHONE.ui.saveSettings);
 
-    // 输入框回车发送
-    document.getElementById('msg-input').addEventListener('keydown', (e) => {
-        e.stopPropagation(); // 阻止冒泡给酒馆
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            document.getElementById('btn-send').click();
-        }
-    });
-
-    document.getElementById('btn-toggle-stickers').onclick = () => {
-        const panel = document.getElementById('sticker-panel');
-        if (panel.classList.contains('hidden')) {
-            ST.ui.initStickers();
-            panel.classList.remove('hidden');
-        } else {
-            panel.classList.add('hidden');
-        }
-    };
-
-    // 搜索
     document.getElementById('phone-search-bar').addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase();
-        if (!q) {
-            ST.ui.renderContacts(); 
+        const query = e.target.value.toLowerCase().trim();
+        const allContacts = window.ST_PHONE.state.contacts;
+        if (!query) {
+            window.ST_PHONE.ui.renderContacts(null);
             return;
         }
-        const filtered = ST.store.contacts.filter(c => c.name.toLowerCase().includes(q) || c.lastMsg.includes(q));
-        ST.ui.renderContacts(filtered);
+        const filtered = allContacts.filter(c => {
+            const matchName = c.name.toLowerCase().includes(query);
+            const matchMsg = c.messages.some(m => m.text.toLowerCase().includes(query));
+            return matchName || matchMsg;
+        });
+        window.ST_PHONE.ui.renderContacts(filtered);
     });
-
-    // 设置页相关
-    document.getElementById('btn-open-settings').onclick = () => {
-        document.getElementById('page-contacts').classList.add('hidden-left');
-        document.getElementById('page-contacts').classList.remove('active');
-        document.getElementById('page-settings').classList.remove('hidden-right');
-        document.getElementById('page-settings').classList.add('active');
-        ST.ui.loadWorldBooks();
-    };
-    document.getElementById('btn-settings-back').onclick = () => {
-        document.getElementById('page-settings').classList.add('hidden-right');
-        document.getElementById('page-settings').classList.remove('active');
-        document.getElementById('page-contacts').classList.remove('hidden-left');
-        document.getElementById('page-contacts').classList.add('active');
-    };
-    document.getElementById('setting-worldbook-select').onchange = (e) => {
-        ST.config.targetWorldBook = e.target.value;
-        localStorage.setItem('ST_PHONE_PREFS', JSON.stringify({ targetWorldBook: e.target.value }));
-    };
-
-    // --- 监听全局事件 (Event Bus) ---
-    
-    ST.on('contacts-updated', (contacts) => {
-        // 如果正在搜索，不打断用户
-        const searchVal = document.getElementById('phone-search-bar').value;
-        if (!searchVal) ST.ui.renderContacts(contacts);
-        ST.ui.updateStatusBar(ST.store.virtualTime);
-        ST.ui.setNotification(ST.store.unreadIds.size > 0);
-    });
-
-    ST.on('chat-updated', (contact) => {
-        // 仅当当前打开的聊天是该联系人时才更新
-        if (ST.store.activeContactId === contact.id) {
-            ST.ui.updateChat(contact);
+    document.getElementById('btn-add-friend').onclick = () => window.ST_PHONE.ui.toggleNewMsgSheet(true);
+    document.getElementById('btn-cancel-new').onclick = () => window.ST_PHONE.ui.toggleNewMsgSheet(false);
+    document.getElementById('new-msg-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+            window.ST_PHONE.ui.openChatByName(e.target.value.trim());
         }
     });
+    document.getElementById('btn-toggle-stickers').onclick = window.ST_PHONE.ui.toggleStickerPanel;
 
-    ST.on('notification-arrived', () => {
-        ST.ui.playSound();
-        ST.ui.setNotification(true);
+    const msgInput = document.getElementById('msg-input');
+    if(msgInput) {
+        msgInput.addEventListener('keydown', (e) => { 
+            e.stopPropagation();
+            if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                    return;
+                } else {
+                    e.preventDefault();
+                    if (e.target.value.trim()) {
+                        const sendBtn = document.getElementById('btn-send');
+                        if(sendBtn) sendBtn.click();
+                    }
+                    e.target.style.height = '36px'; 
+                }
+            }
+        });
+        msgInput.addEventListener('input', function() {
+            this.style.height = '36px'; 
+            this.style.height = (this.scrollHeight) + 'px'; 
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        // 只有当手机处于打开状态时才拦截
+        if (e.key === 'Escape' && window.ST_PHONE.state.isPhoneOpen) {
+            
+            // 逻辑优化：如果表情包面板开着，先关表情包
+            const stickerPanel = document.getElementById('sticker-panel');
+            if (stickerPanel && !stickerPanel.classList.contains('hidden')) {
+                window.ST_PHONE.ui.toggleStickerPanel();
+                e.stopPropagation(); // 阻止事件冒泡，避免误触酒馆其他功能
+                return;
+            }
+
+            // 否则直接关闭/隐藏手机窗口
+            window.ST_PHONE.ui.toggleWindow();
+            e.stopPropagation();
+        }
     });
 
 })();

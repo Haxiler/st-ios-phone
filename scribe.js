@@ -1,35 +1,31 @@
 // ==================================================================================
-// 模块: Scribe (书记员 - v4.0 Debounced Sync)
+// 模块: Scribe (书记员 - v6.0 Native Module)
 // ==================================================================================
+
+// 【核心】直接引入酒馆原生工具
+// loadWorldInfo: 读取世界书 (自动处理缓存)
+// saveWorldInfo: 保存世界书 (自动刷新UI)
 import { loadWorldInfo, saveWorldInfo } from "/scripts/world-info.js";
 import { getContext } from "/scripts/extensions.js";
 
-const MAX_MESSAGES = 20; // 仅保留最近20条作为上下文
+const MAX_MESSAGES = 20;
 
-// --- 工具函数 ---
+// --- 辅助工具函数 ---
+
 function getCharacters() {
     return window.characters || (window.SillyTavern && window.SillyTavern.characters) || {};
 }
 
 function generateUUID() {
-    return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
+    if (crypto && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString() + Math.random().toString(36).substring(2);
 }
 
-// 防抖函数生成器
-function debounce(func, wait) {
-    let timeout;
-    return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-    };
-}
-
-function buildEntryContent(contact) {
-    if (!contact.messages || contact.messages.length === 0) return null;
+function buildContent(contact) {
+    if (!contact.messages || contact.messages.length === 0) return '';
     const msgs = contact.messages.slice(-MAX_MESSAGES);
-    
-    let out = `【手机短信记录｜${contact.name}】\n`;
-    out += `Context: Recent text messages between {{user}} and ${contact.name}.\n\n`;
+    let out = `【手机短信记录｜${contact.name}】\n\n`;
+    out += `以下是 {{user}} 与 ${contact.name} 之间的近期手机短信记录，仅在短信交流时用于回忆上下文。\n\n`;
     msgs.forEach(m => {
         const who = m.sender === 'user' ? '我' : contact.name;
         out += `(${m.timeStr}) ${who}：${m.text}\n`;
@@ -40,138 +36,200 @@ function buildEntryContent(contact) {
 function createEntry(contactName, comment, content) {
     return {
         uid: generateUUID(),
-        key: [contactName, "手机短信", "SMS"], // 增加触发词
-        keys: [contactName, "手机短信", "SMS"],
+        key: [contactName],
+        keys: [contactName],
         comment: comment,
         content: content,
         enabled: true,
-        position: 4, // @D
-        depth: 3,    
-        order: 100,
+        position: 4, // 4 = @D
+        depth: 3,    // 深度 3
+        role: 0,
+        preventRecursion: true,
         constant: false,
-        preventRecursion: true
+        selectiveLogic: 0,
+        order: 100,
+        extensions: { position: 4, depth: 3, role: 0, prevent_recursion: true, exclude_recursion: true }
     };
 }
 
-// --- 同步主逻辑 ---
+// --- 核心同步逻辑 (Native) ---
 
-async function performSync() {
-    const ST = window.ST_PHONE;
-    if (!ST || !ST.store.contacts) return;
-    
+async function performSync(contacts) {
+    // 0. 环境检查
+    if (!window.ST_PHONE) return;
     const context = getContext();
-    if (!context || context.characterId === undefined) return;
+    if (!context) return;
 
-    // 1. 确定目标书
-    let targetBookName = ST.config.targetWorldBook;
+    // 1. 确定目标
+    let targetBookName = window.ST_PHONE.config.targetWorldBook;
     let isEmbedded = false;
-    
-    // 如果没有配置，尝试使用内置
-    if (!targetBookName) {
-        const char = getCharacters()[context.characterId];
-        if (char) {
+    let charId = context.characterId;
+
+    // 自动寻找目标
+    if (!targetBookName && charId !== undefined && charId !== null) {
+        const chars = getCharacters();
+        const char = chars[charId];
+        if (char && char.data && char.data.character_book) {
             isEmbedded = true;
             targetBookName = "Embedded";
         }
     }
-    
-    if (!targetBookName && !isEmbedded) return;
 
-    console.log('📱 Scribe: 开始同步短信到世界书...');
+    if (!targetBookName && !isEmbedded) return; // 无目标，退出
 
-    // 2. 准备数据
+    // 2. 构建期望状态 (Active Map)
     const activeEntriesMap = new Map();
-    ST.store.contacts.forEach(contact => {
-        const content = buildEntryContent(contact);
-        if (content) {
-            activeEntriesMap.set(`ST_PHONE_SMS::${contact.name}`, { 
-                content, 
-                name: contact.name 
-            });
-        }
-    });
+    if (contacts && Array.isArray(contacts)) {
+        contacts.forEach(contact => {
+            const content = buildContent(contact);
+            if (content) {
+                const comment = `ST_PHONE_SMS::${contact.name}`;
+                activeEntriesMap.set(comment, { content: content, name: contact.name });
+            }
+        });
+    }
 
-    // 3. 读取与更新
+    // 3. 读取数据 (Read)
+    let bookObj = null;
+    let bookEntries = null; // 指向 entries 的引用
+
     try {
-        let bookObj;
         if (isEmbedded) {
-            const char = getCharacters()[context.characterId];
-            if (!char.data.character_book) char.data.character_book = { entries: [] };
-            bookObj = char.data.character_book;
+            // --- 内置模式 (操作内存) ---
+            const chars = getCharacters();
+            if (!chars[charId]) return;
+            if (!chars[charId].data.character_book) chars[charId].data.character_book = { entries: [] };
+            bookObj = chars[charId].data.character_book;
         } else {
+            // --- 全局模式 (使用原生 loadWorldInfo) ---
+            // 这会自动处理 API 请求和数据解析
             bookObj = await loadWorldInfo(targetBookName);
-            if (!bookObj) return;
+            if (!bookObj) {
+                console.warn(`[ST-Phone] 无法加载世界书: ${targetBookName}`);
+                return;
+            }
         }
+    } catch (e) {
+        console.error("[ST-Phone] 读取世界书失败", e);
+        return;
+    }
 
-        let entries = bookObj.entries || [];
-        // 统一转为数组处理 (酒馆某些版本可能是对象)
-        const isDict = !Array.isArray(entries);
-        let entryList = isDict ? Object.values(entries) : entries;
+    if (!bookObj.entries) bookObj.entries = [];
+    bookEntries = bookObj.entries;
+    
+    let modified = false;
+
+    // 4. 执行 GC 和 更新 (Update & Delete)
+    // 兼容 Array 和 Object 两种 entries 格式
+    const isDict = !Array.isArray(bookEntries);
+
+    if (isDict) {
+        // --- 字典模式 ---
+        const uidsToDelete = [];
         
-        let modified = false;
-        const newEntryList = [];
-        const processedComments = new Set();
-
-        // 3.1 遍历现有条目：更新或标记删除
-        for (const entry of entryList) {
+        // 遍历现有条目
+        for (const uid in bookEntries) {
+            const entry = bookEntries[uid];
             if (entry.comment && entry.comment.startsWith('ST_PHONE_SMS::')) {
                 if (activeEntriesMap.has(entry.comment)) {
-                    // 存在 -> 检查更新
+                    // 更新
                     const newData = activeEntriesMap.get(entry.comment);
                     if (entry.content !== newData.content) {
                         entry.content = newData.content;
+                        entry.enabled = true;
                         modified = true;
                     }
-                    processedComments.add(entry.comment);
-                    newEntryList.push(entry);
+                    if (entry.position !== 4) { entry.position = 4; modified = true; }
+                    activeEntriesMap.delete(entry.comment);
                 } else {
-                    // 不存在 -> 删除 (不加入新列表)
+                    // 删除
+                    uidsToDelete.push(uid);
+                    modified = true;
+                }
+            }
+        }
+        
+        uidsToDelete.forEach(uid => delete bookEntries[uid]);
+        
+        // 新增
+        activeEntriesMap.forEach((data, comment) => {
+            const newEntry = createEntry(data.name, comment, data.content);
+            bookEntries[newEntry.uid] = newEntry;
+            modified = true;
+        });
+
+    } else {
+        // --- 数组模式 ---
+        const newEntriesList = [];
+        
+        bookEntries.forEach(entry => {
+            if (entry.comment && entry.comment.startsWith('ST_PHONE_SMS::')) {
+                if (activeEntriesMap.has(entry.comment)) {
+                    // 更新
+                    const newData = activeEntriesMap.get(entry.comment);
+                    if (entry.content !== newData.content) {
+                        entry.content = newData.content;
+                        entry.enabled = true;
+                        modified = true;
+                    }
+                    if (entry.position !== 4) { entry.position = 4; modified = true; }
+                    
+                    newEntriesList.push(entry);
+                    activeEntriesMap.delete(entry.comment);
+                } else {
+                    // 删除 (不加入新列表即为删除)
                     modified = true;
                 }
             } else {
-                // 非插件条目 -> 保留
-                newEntryList.push(entry);
-            }
-        }
-
-        // 3.2 插入新条目
-        activeEntriesMap.forEach((data, comment) => {
-            if (!processedComments.has(comment)) {
-                newEntryList.push(createEntry(data.name, comment, data.content));
-                modified = true;
+                // 保留其他条目
+                newEntriesList.push(entry);
             }
         });
 
-        // 4. 保存
+        // 新增
+        activeEntriesMap.forEach((data, comment) => {
+            const newEntry = createEntry(data.name, comment, data.content);
+            newEntriesList.push(newEntry);
+            modified = true;
+        });
+
         if (modified) {
-            if (isDict) {
-                // 如果原格式是对象，尝试转回对象（或直接存数组，酒馆通常兼容）
-                bookObj.entries = newEntryList; 
-            } else {
-                bookObj.entries = newEntryList;
-            }
-
-            if (isEmbedded) {
-                if (window.SillyTavern.saveCharacter) {
-                    window.SillyTavern.saveCharacter(context.characterId);
-                }
-            } else {
-                // 第三个参数 true = 立即刷新
-                await saveWorldInfo(targetBookName, bookObj, true);
-            }
-            console.log('📱 Scribe: 同步完成');
+            bookObj.entries = newEntriesList;
         }
+    }
 
-    } catch (e) {
-        console.error('📱 Scribe: 同步失败', e);
+    // 5. 保存 (Save)
+    if (modified) {
+        console.log(`📱 [ST-Phone] 原生同步完成: ${targetBookName} (Embedded: ${isEmbedded})`);
+        
+        if (isEmbedded) {
+            // 内置书保存
+            if (window.SillyTavern && window.SillyTavern.saveCharacter) {
+                // 使用 debounce 或直接保存
+                window.SillyTavern.saveCharacter(charId); 
+            }
+        } else {
+            // 全局书保存 (核心优化)
+            // 第三个参数 true 表示 immediateUpdate，会立即刷新 UI
+            try {
+                await saveWorldInfo(targetBookName, bookObj, true);
+            } catch (saveErr) {
+                console.error("[ST-Phone] 保存世界书失败", saveErr);
+            }
+        }
     }
 }
 
-// 挂载防抖版本
+// 暴露接口给全局对象
+// 因为这是一个 Module，变量是私有的，必须手动挂载到 window
 if (window.ST_PHONE) {
     window.ST_PHONE.scribe = {
         sync: performSync,
-        // 2秒防抖，适合在打字机结束时调用
-        debouncedSync: debounce(performSync, 2000)
+        forceSync: () => {
+            if (window.ST_PHONE.state && window.ST_PHONE.state.contacts) {
+                performSync(window.ST_PHONE.state.contacts);
+            }
+        }
     };
+    console.log('📱 ST-Phone: Scribe 模块 (Native) 已挂载');
 }

@@ -1,180 +1,163 @@
-/* 根容器隔离，防止全局污染 */
-#st-ios-phone-root {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-    color: #000;
-}
+// ==================================================================================
+// 模块: Config (静态配置)
+// ==================================================================================
+(function() {
+    // 确保命名空间存在
+    window.ST_PHONE = window.ST_PHONE || {};
 
-#st-phone-icon {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 60px;
-    height: 60px;
-    border-radius: 18px;
-    cursor: pointer;
-    z-index: 19998;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s;
-    background-image: linear-gradient(135deg, #4c4c4c, #1a1a1a);
-}
-#st-phone-icon:active { transform: scale(0.95); }
-#st-phone-icon svg { width: 32px; height: 32px; fill: white; }
+    window.ST_PHONE.config = {
+        // 主题色配置
+        theme: {
+            primary: '#007AFF',
+            background: '#ffffff'
+        },
 
-#st-phone-window {
-    position: fixed;
-    top: 100px;
-    left: 100px;
-    width: 375px;
-    height: 720px;
-    background-color: #fff;
-    border-radius: 44px;
-    box-shadow: 0 25px 60px rgba(0,0,0,0.4);
-    z-index: 20000;
-    overflow: hidden;
-    border: 10px solid #111;
-    box-sizing: content-box; /* 确保边框不吃掉内容宽度 */
-}
-
-/* 顶部刘海区域 */
-.phone-notch-area {
-    width: 100%;
-    height: 34px;
-    background-color: #fff;
-    cursor: move;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding-top: 8px;
-    z-index: 20;
-    position: relative;
-    user-select: none;
-}
-.phone-notch {
-    width: 100px;
-    height: 24px;
-    background-color: #111;
-    border-radius: 16px;
-}
-#status-bar-time {
-    position: absolute;
-    left: 20px; top: 13px;
-    font-size: 12px; font-weight: 600;
-    color: #000;
-    pointer-events: none;
-}
-
-/* 页面切换动画容器 */
-.app-container {
-    width: 100%;
-    height: calc(100% - 34px);
-    background-color: #fff;
-    position: relative;
-    overflow: hidden;
-}
-.pages-wrapper { width: 100%; height: 100%; position: relative; }
-.page {
-    width: 100%; height: 100%;
-    position: absolute; top: 0; left: 0;
-    background-color: #fff;
-    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-    display: flex; flex-direction: column;
-}
-.page.hidden-left { transform: translateX(-30%); opacity: 0.8; }
-.page.hidden-right { transform: translateX(100%); box-shadow: -5px 0 20px rgba(0,0,0,0.1); }
-.page.active { transform: translateX(0); opacity: 1; z-index: 2; }
-.page.hidden-bottom { transform: translateY(100%); z-index: 20; }
-
-/* 导航栏 */
-.nav-bar {
-    height: 44px;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 16px;
-    background-color: rgba(255,255,255,0.85);
-    backdrop-filter: blur(20px);
-    z-index: 10;
-    border-bottom: 0.5px solid rgba(0,0,0,0.1);
-}
-.nav-title { font-weight: 600; font-size: 17px; position: absolute; left: 50%; transform: translate(-50%); }
-.nav-btn { background: none; border: none; padding: 0; cursor: pointer; display: flex; align-items: center; color: #007AFF; font-size: 17px; }
-
-/* 搜索栏 */
-.ios-search-bar { padding: 0 16px 8px 16px; }
-.search-input {
-    background-color: #E3E3E8;
-    border-radius: 10px; height: 36px;
-    display: flex; align-items: center; padding-left: 10px; gap: 6px;
-}
-/* 提高权重覆盖默认样式 */
-#st-ios-phone-root #phone-search-bar {
-    background: transparent; border: none; outline: none;
-    font-size: 15px; color: #000; width: 100%; height: 100%;
-    box-shadow: none;
-}
-
-/* 联系人列表 */
-.contact-list { flex: 1; overflow-y: auto; }
-.contact-item {
-    padding: 10px 0; margin-left: 20px;
-    border-bottom: 0.5px solid #c6c6c8;
-    cursor: pointer;
-    height: 76px; display: flex; flex-direction: column; justify-content: center;
-}
-.contact-item:active { background-color: #f2f2f2; margin-left: 0; padding-left: 20px; }
-.name { font-weight: 600; font-size: 16px; }
-.time { font-size: 14px; color: #8e8e93; float: right; margin-right: 16px; }
-.preview { font-size: 15px; color: #8e8e93; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90%; margin-top: 2px; }
-
-/* 聊天气泡 */
-.chat-scroll-area {
-    flex: 1; overflow-y: auto; padding: 10px 12px;
-    display: flex; flex-direction: column; gap: 6px; background-color: #fff;
-}
-.message-bubble {
-    max-width: 72%; padding: 8px 14px;
-    border-radius: 18px; font-size: 16px; line-height: 1.35;
-    word-wrap: break-word; position: relative;
-}
-.message-bubble img { max-width: 100%; border-radius: 8px; display: block; margin: 4px 0; }
-.message-bubble.received { align-self: flex-start; background-color: #e9e9eb; color: #000; border-bottom-left-radius: 4px; }
-.message-bubble.sent { align-self: flex-end; background-color: #007AFF; color: #fff; border-bottom-right-radius: 4px; }
-
-/* 输入区域 */
-.input-area {
-    padding: 10px 16px 20px 16px;
-    background-color: #f9f9f9; border-top: 0.5px solid #bdc5cd;
-    display: flex; align-items: center; gap: 12px;
-}
-#st-ios-phone-root .chat-input {
-    flex: 1; border: 1px solid #C6C6C8; border-radius: 20px;
-    padding: 9px 12px; font-size: 16px;
-    background-color: #FFF; color: #000;
-    resize: none; height: 38px; min-height: 38px;
-    outline: none;
-}
-.send-btn {
-    width: 28px; height: 28px; border-radius: 50%; background-color: #007AFF;
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-    flex-shrink: 0;
-}
-.send-btn svg { width: 15px; height: 15px; fill: white; margin-left: 2px; margin-top: 1px; }
-
-/* 贴纸面板 */
-.sticker-panel { height: 250px; background-color: #e9e9eb; overflow: hidden; display: flex; flex-direction: column; transition: height 0.3s; }
-.sticker-panel.hidden { height: 0; }
-.sticker-grid { flex: 1; overflow-y: auto; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-content: start; }
-.sticker-grid img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 8px; cursor: pointer; }
-
-/* 蓝点与红点 */
-.unread-dot-indicator { display: inline-block; width: 8px; height: 8px; background-color: #007AFF; border-radius: 50%; margin-left: 6px; }
-.notification-dot {
-    position: absolute; top: -4px; right: -4px; width: 14px; height: 14px;
-    background-color: #E5E5EA; border: 3px solid #333; border-radius: 50%;
-    z-index: 10000; display: none; transform: scale(0); transition: transform 0.3s;
-}
-.notification-dot.active { display: block; transform: scale(1); }
-
-/* 时间戳 */
-.chat-timestamp { text-align: center; color: #8e8e93; font-size: 11px; margin: 16px 0 8px 0; font-weight: 500; }
+        // 表情包库 (已整合你的数据)
+        stickers: [
+            // --- 基础互动 ---
+{ label: "开心的跳舞", url: "https://files.catbox.moe/rifquh.gif" },
+{ label: "收到敬礼", url: "https://files.catbox.moe/x57pt9.gif" },
+{ label: "好耶（飞奔）", url: "https://files.catbox.moe/rv50e5.gif" },
+{ label: "呜呜（大哭）", url: "https://files.catbox.moe/2a4qkv.gif" },
+{ label: "委屈🥺", url: "https://files.catbox.moe/ehb859.gif" },
+{ label: "送花", url: "https://files.catbox.moe/slytma.gif" },
+{ label: "开心", url: "https://files.catbox.moe/cirfzj.gif" },
+{ label: "哇！真的吗", url: "https://files.catbox.moe/0f5y9j.gif" },
+{ label: "气嘟嘟", url: "https://files.catbox.moe/bfk8cx.gif" },
+{ label: "包在我身上(OK）", url: "https://files.catbox.moe/wsqbt1.gif" },
+{ label: "自闭", url: "https://files.catbox.moe/ma1ksa.gif" },
+{ label: "不开心", url: "https://files.catbox.moe/kz3sxe.gif" },
+{ label: "哭哭", url: "https://files.catbox.moe/wl0qzq.gif" },
+{ label: "捂脸哭(假哭）", url: "https://files.catbox.moe/emu99k.gif" },
+{ label: "眼神亮晶晶", url: "https://files.catbox.moe/urdfkq.gif" },
+{ label: "心动", url: "https://files.catbox.moe/9x1o38.gif" },
+{ label: "飞吻", url: "https://files.catbox.moe/xrfvlx.gif" },
+{ label: "生气", url: "https://files.catbox.moe/ltf11x.gif" },
+{ label: "放屁", url: "https://files.catbox.moe/sodmp7.gif" },
+{ label: "耍赖", url: "https://files.catbox.moe/9m913y.gif" },
+{ label: "咦！（震惊）", url: "https://files.catbox.moe/j270y8.gif" },
+{ label: "疑惑", url: "https://files.catbox.moe/td6tla.gif" },
+{ label: "棒", url: "https://files.catbox.moe/xp0nx5.gif" },
+{ label: "OK", url: "https://files.catbox.moe/z7rstl.gif" },
+{ label: "打你", url: "https://files.catbox.moe/ccdwsh.gif" },
+{ label: "害羞", url: "https://files.catbox.moe/im1fb1.jpeg" },
+{ label: "灵魂出窍", url: "https://files.catbox.moe/oitobi.jpeg" },
+{ label: "冒冷汗", url: "https://files.catbox.moe/88rj5h.jpeg" },
+{ label: "思考", url: "https://files.catbox.moe/se13r7.jpeg" },
+{ label: "发怒", url: "https://files.catbox.moe/1ym8s2.jpeg" },
+{ label: "幸灾乐祸", url: "https://files.catbox.moe/t2sq0v.jpeg" },
+{ label: "飞奔", url: "https://files.catbox.moe/lyohwx.jpeg" },
+{ label: "飘来", url: "https://files.catbox.moe/9tz3ri.jpeg" },
+{ label: "不愿醒来", url: "https://files.catbox.moe/hbkdex.jpeg" },
+{ label: "我是你的菜吗", url: "https://i.postimg.cc/YSQhQzK6/1.jpg" },
+{ label: "唉", url: "https://i.postimg.cc/j5wKzsJB/1.jpg" },
+{ label: "世一萌在此", url: "https://i.postimg.cc/1XGkH4RY/1.jpg" },
+{ label: "我爱被窝", url: "https://i.postimg.cc/pXP4vWLX/1.jpg" },
+{ label: "美而萌之", url: "https://i.postimg.cc/MGfr5Xd4/1.jpg" },
+{ label: "罚站ing", url: "https://i.postimg.cc/m2dXG7n6/1.jpg" },
+{ label: "你怎么骂我都无所谓 因为我转身躺在老婆怀里就睡着了", url: "https://i.postimg.cc/PrBDZxvT/1.jpg" },
+{ label: "妹子我亲你一口你敢反抗吗", url: "https://i.postimg.cc/yN0yWRfR/1.jpg" },
+{ label: "妹子约会不", url: "https://i.postimg.cc/WbJF2vYz/1.jpg" },
+{ label: "略~", url: "https://i.postimg.cc/DmVzWSpT/1.jpg" },
+{ label: "给我一个亲亲好么", url: "https://i.postimg.cc/FKF0F6Jg/1.jpg" },
+{ label: "我发誓我再也不哭了", url: "https://i.postimg.cc/vmDDNwVh/1.jpg" },
+{ label: "上线了泡我", url: "https://i.postimg.cc/fRRbVQBm/1.jpg" },
+{ label: "喵的 劳资惹你没", url: "https://i.postimg.cc/c4Xxy5Z5/1.jpg" },
+{ label: "老子生气了", url: "https://i.postimg.cc/SQGqCtXG/1.jpg" },
+{ label: "可恶被制裁了", url: "https://i.postimg.cc/cHBq7rJG/1.jpg" },
+{ label: "我要你屁股的命", url: "https://i.postimg.cc/jjyBKLPj/1.jpg" },
+{ label: "我已经用力挠了你屁股", url: "https://i.postimg.cc/3Rt1Hvrz/1.jpg" },
+{ label: "谢谢你挠我屁股", url: "https://i.postimg.cc/qB9bB2XL/1.jpg" },
+{ label: "正在摸你屁屁", url: "https://i.postimg.cc/SsHrsp8W/1.jpg" },
+{ label: "你想饿死老子吗", url: "https://i.postimg.cc/WzRGVwL9/1.jpg" },
+{ label: "我的饭饭怎么还不来", url: "https://i.postimg.cc/y8f0xHCC/1.jpg" },
+{ label: "再叫一脚把你踢飞", url: "https://i.postimg.cc/7YwzN6xq/1.jpg" },
+{ label: "神经 开车创死你", url: "https://i.postimg.cc/tgx7bQq0/1.jpg" },
+{ label: "把属于老子的富二代人生还给老子", url: "https://i.postimg.cc/TYNPWYhR/1.jpg" },
+{ label: "真想赏你两脚", url: "https://i.postimg.cc/mZX4mp4T/1.jpg" },
+{ label: "恨全世界", url: "https://i.postimg.cc/TYMz7zSh/1.jpg" },
+{ label: "感觉被资本做局", url: "https://i.postimg.cc/d0xX8prd/1.jpg" },
+{ label: "老虎不发威当我是小猫吗", url: "https://i.postimg.cc/7ZPQjwNh/1.jpg" },
+{ label: "睡醒变成小猫了", url: "https://i.postimg.cc/0yHZ3mQd/1.jpg" },
+{ label: "见了喵大王还不跪下！", url: "https://i.postimg.cc/9Xtb2s0f/1.jpg" },
+{ label: "我萌吗", url: "https://i.postimg.cc/Bn82jzSY/1.jpg" },
+{ label: "萌也是一种天赋", url: "https://i.postimg.cc/hGLzxWHt/1.jpg" },
+{ label: "你说啥", url: "https://i.postimg.cc/DzTm7p8z/1.jpg" },
+{ label: "再说我干你", url: "https://i.postimg.cc/m21rCW94/1.jpg" },
+{ label: "你在做什么", url: "https://i.postimg.cc/nhtnmjZ7/1.jpg" },
+{ label: "我很萌哦", url: "https://i.postimg.cc/DfJWdGkF/1.jpg" },
+{ label: "咪可以一直烦你吗", url: "https://i.postimg.cc/ZR9qcGQ7/1.jpg" },
+{ label: "看见你我就来气 走开！", url: "https://i.postimg.cc/MK0pdb95/1.jpg" },
+{ label: "？", url: "https://i.postimg.cc/gc8z2Hbs/1.jpg" },
+{ label: "心理委员你在哪", url: "https://i.postimg.cc/6qXNvFx5/1.jpg" },
+{ label: "桂夏(跪下)！", url: "https://i.postimg.cc/1zVxYy96/1.jpg" },
+{ label: "我就要这个", url: "https://i.postimg.cc/vHZNNGhZ/1.jpg" },
+{ label: "听不懂 要亲亲", url: "https://i.postimg.cc/ZKnwLVYY/1.jpg" },
+{ label: "丑拒", url: "https://i.postimg.cc/436P30P5/1.jpg" },
+{ label: "还有活着的风险吗", url: "https://i.postimg.cc/L8fByWcq/1.jpg" },
+{ label: "你不要给我哇哇叫", url: "https://i.postimg.cc/yxk00pmQ/1.jpg" },
+{ label: "你真的不和我讲话吗", url: "https://i.postimg.cc/vZWf7Vng/1.jpg" },
+{ label: "我一定乖乖嘟", url: "https://i.postimg.cc/90RqDRVF/1.jpg" },
+{ label: "绝交五分钟", url: "https://i.postimg.cc/cJFKTMLn/1.jpg" },
+{ label: "删掉 腰不想要了？", url: "https://i.postimg.cc/nMfMM30W/1.jpg" },
+{ label: "我好像没惹你吧？", url: "https://i.postimg.cc/PJwM8rn0/1.jpg" },
+{ label: "小猫咪我要崛起了", url: "https://i.postimg.cc/Jhzc5QWp/1.jpg" },
+{ label: "我不行了", url: "https://i.postimg.cc/qB3cwR9R/1.jpg" },
+{ label: "被哥迷倒了吗", url: "https://i.postimg.cc/KYjBMvn9/1.jpg" },
+{ label: "谁敢忤逆本大王？", url: "https://i.postimg.cc/DfLssNbD/1.jpg" },
+{ label: "承认吧 你也为咪着迷", url: "https://i.postimg.cc/DzS4zphm/1.jpg" },
+{ label: "喵的 我就睡", url: "https://i.postimg.cc/FKk1vfbN/1.jpg" },
+{ label: "我不是闲人 我需要睡觉", url: "https://i.postimg.cc/DyY2zvwm/1.jpg" },
+{ label: "能奈我何", url: "https://i.postimg.cc/RF9mYqXR/1.jpg" },
+{ label: "活喵微死状态", url: "https://i.postimg.cc/rs3YvPMb/1.jpg" },
+{ label: "被拿捏住了", url: "https://i.postimg.cc/v84yNRzR/1.jpg" },
+{ label: "窝靠嫩娘嘞 恁不要俺了？", url: "https://i.postimg.cc/Jz5CkR12/1.jpg" },
+{ label: "我要叫律师", url: "https://i.postimg.cc/SswvPPSm/1.jpg" },
+{ label: "我操你爸有完没完", url: "https://i.postimg.cc/BnqwRH02/1.jpg" },
+{ label: "你再这样我提上行李就走", url: "https://i.postimg.cc/SR6DvN1L/1.jpg" },
+{ label: "走开 一股小狗味", url: "https://i.postimg.cc/SKnVpGtb/1.jpg" },
+{ label: "快理我！", url: "https://i.postimg.cc/CLwNK06W/1.jpg" },
+{ label: "不会再做乖孩子", url: "https://i.postimg.cc/tTh3Xv3L/1.jpg" },
+{ label: "老子才是大王", url: "https://i.postimg.cc/q7KnLD51/1.jpg" },
+{ label: "这饭怎么这么香！", url: "https://i.postimg.cc/dtzVBQPn/1.jpg" },
+{ label: "ovo", url: "https://i.postimg.cc/VNFsmjrL/1.jpg" },
+{ label: "什么意思 不养了吗", url: "https://i.postimg.cc/bwcqn618/1.jpg" },
+{ label: "看见字就发晕", url: "https://i.postimg.cc/yNfd0mVG/1.jpg" },
+{ label: "小皇帝驾到", url: "https://i.postimg.cc/52bNG7y3/1.jpg" },
+{ label: "这是对你的奖励", url: "https://i.postimg.cc/Fz0NC3QG/1.jpg" },
+{ label: "我就算再坏你也要认了忍了", url: "https://i.postimg.cc/q7g0V9Tw/1.jpg" },
+{ label: "我的一生如履薄冰", url: "https://i.postimg.cc/FHC5ZDLd/1.jpg" },
+{ label: "小猫一败涂地", url: "https://i.postimg.cc/9Xd6SW7L/1.jpg" },
+{ label: "来救咪 咪被控制了", url: "https://i.postimg.cc/SKY5Gqq0/1.jpg" },
+{ label: "No kisses？(怒视)", url: "https://i.postimg.cc/G21MJyzW/1.jpg" },
+{ label: "神独自忧郁", url: "https://i.postimg.cc/L5QB7YBn/1.jpg" },
+{ label: "泥虫脆柿红蛋(你纯粹是混蛋)", url: "https://i.postimg.cc/V6YqkBKb/1.jpg" },
+{ label: "已读 不想回", url: "https://i.postimg.cc/6QKRMfxJ/1.jpg" },
+{ label: "咪要睡觉觉了", url: "https://i.postimg.cc/j2nLxDYW/1.jpg" },
+{ label: "yummy", url: "https://i.postimg.cc/9MKyY5Wx/1.jpg" },
+{ label: "我操你爸你不要我了吗", url: "https://i.postimg.cc/NjBm4xcj/1.jpg" },
+{ label: "看啥呢 给你眼抠下来", url: "https://i.postimg.cc/hjk77Lr2/1.jpg" },
+{ label: "我讨厌你！", url: "https://i.postimg.cc/Z5bv3KrX/1.jpg" },
+{ label: "在睡觉 二缺一谁来", url: "https://i.postimg.cc/MH0XMhXf/1.jpg" },
+{ label: "Hello？", url: "https://i.postimg.cc/mgghkp4F/1.jpg" },
+{ label: "和你天下第一好", url: "https://i.postimg.cc/5yJ2VngD/1.jpg" },
+{ label: "操你大坝", url: "https://i.postimg.cc/YqpCDDh4/1.jpg" },
+{ label: "爱你老婆 明天见", url: "https://i.postimg.cc/fWv9b9dd/1.jpg" },
+{ label: "qwq", url: "https://i.postimg.cc/sxnx459z/1.jpg" },
+{ label: "今个我长这样 挺萌的", url: "https://i.postimg.cc/qR47f1jW/1.jpg" },
+{ label: "唉 懵逼啊", url: "https://i.postimg.cc/gJgmCmwJ/1.jpg" },
+{ label: "拉大便------！", url: "https://i.postimg.cc/gkCmFMJP/1.jpg" },
+{ label: "谁想亲亲老子", url: "https://i.postimg.cc/zGYZPVdt/1.jpg" },
+{ label: "要鸡巴干啥", url: "https://i.postimg.cc/9Q2Xw8j1/1.jpg" },
+{ label: "Wink 放个电迷死你", url: "https://i.postimg.cc/jjFrcvBF/1.jpg" },
+{ label: "又是艳阳天 咪舒适", url: "https://i.postimg.cc/2SjRfPDs/1.jpg" },
+{ label: "我很脆弱 宠着我好吗", url: "https://i.postimg.cc/7YDjgpbs/1.jpg" },
+{ label: "咱俩再也不好", url: "https://i.postimg.cc/D0cjjwmM/1.jpg" },
+{ label: "咪听不懂", url: "https://i.postimg.cc/MKd31HC7/1.jpg" },
+{ label: "哎这事难办", url: "https://i.postimg.cc/sXYwxgPh/1.jpg" },
+{ label: "你个屌毛 出去别说我认识你", url: "https://i.postimg.cc/6QRhbpPs/1.jpg" },
+{ label: "我的手段你是知道的", url: "https://i.postimg.cc/qv6cg744/1.jpg" },
+{ label: "需要咪帮倒忙吗", url: "https://i.postimg.cc/PfF8Zk6p/1.jpg" }
+        ]
+    };
+})();
