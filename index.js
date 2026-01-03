@@ -33,15 +33,16 @@ var scriptTag = document.currentScript || (function() {
         path: EXTENSION_PATH 
     };
 
-    function loadScript(filename) {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = EXTENSION_PATH + filename + '?v=' + Date.now();
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error(`Failed to load ${filename}`));
-            document.head.appendChild(script);
-        });
-    }
+    function loadScript(filename, isModule = false) { // <--- 增加参数
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = EXTENSION_PATH + filename + '?v=' + Date.now();
+        if (isModule) script.type = "module"; // <--- 关键：标记为模块
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load ${filename}`));
+        document.head.appendChild(script);
+    });
+}
 
     try {
         await loadScript("config.js");
@@ -55,7 +56,7 @@ var scriptTag = document.currentScript || (function() {
 
         await loadScript("view.js");
         await loadScript("core.js"); 
-        await loadScript("scribe.js");
+        await loadScript("scribe.js", true);
 
         const settingSelect = document.getElementById('setting-worldbook-select');
         if (settingSelect) {
