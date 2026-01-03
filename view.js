@@ -1,12 +1,12 @@
 // ==================================================================================
-// 模块: View (界面与交互) - v3.1 UI Polish (Settings Fix)
+// 模块: View (界面与交互) - v3.2 Input Fallback
 // ==================================================================================
 (function() {
     if (document.getElementById('st-ios-phone-root')) return;
 
-    // 1. HTML 模板 (设置页已彻底重构)
+    // 1. HTML 模板 (修改了 Settings 页结构)
     const html = `
-    <div id="st-ios-phone-root" style="position: relative; z-index: 20000;">
+    <div id="st-ios-phone-root">
         <div id="st-phone-icon" title="打开/关闭手机">
             <div id="st-notification-dot" class="notification-dot"></div>
             <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
@@ -92,21 +92,21 @@
                         </div>
                         <div style="padding: 20px 0;">
                             <div class="section-title">存储设置</div>
-                            
-                            <div class="ios-list-group">
-                                <div class="ios-list-item">
-                                    <span class="ios-label">存入世界书</span>
-                                    <div class="ios-select-wrapper">
-                                        <select id="setting-worldbook-select" class="ios-select-real">
-                                            <option value="">加载中...</option>
-                                        </select>
-                                        <svg class="ios-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c7c7cc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-                                    </div>
+                            <div style="background: white; border-top: 0.5px solid #c6c6c8; border-bottom: 0.5px solid #c6c6c8; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 16px; color: #000;">存入世界书</span>
+                                    <select id="setting-worldbook-select" style="font-size: 15px; color: #007AFF; border: none; background: transparent; outline: none; text-align: right; max-width: 180px;">
+                                        <option value="">加载中...</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #efeff4; padding-top: 8px;">
+                                    <span style="font-size: 14px; color: #8e8e93;">或手动输入文件名:</span>
+                                    <input type="text" id="setting-worldbook-input" placeholder="例如: Phone_History" style="text-align: right; border: none; outline: none; font-size: 14px; color: #333; width: 150px; background: transparent;">
                                 </div>
                             </div>
-                            <div class="ios-footer-text">
-                                推荐留空。系统会自动检测并使用当前角色卡绑定的世界书（Embedded/Global），为您自动创建短信条目。<br/>
-                                <br/>仅当您希望将所有不同角色的短信强行归档到同一本全局世界书时，才需在此手动选择。
+                            <div style="padding: 8px 16px; font-size: 13px; color: #6d6d72;">
+                                优先使用下拉选择。如果列表为空，请在下方手动输入文件名（保存时会自动创建）。
+                                <br>自动匹配状态：<span id="auto-match-status">检测中...</span>
                             </div>
                         </div>
                     </div>
@@ -148,15 +148,11 @@
             document.onmousemove = null;
         }
     }
-    const phoneWindow = document.getElementById("st-phone-window");
-    const dragHandle = document.getElementById("phone-drag-handle");
-    const phoneIcon = document.getElementById("st-phone-icon");
-    if(phoneWindow && dragHandle) makeDraggable(phoneWindow, dragHandle);
-    if(phoneIcon) makeDraggable(phoneIcon, phoneIcon);
+    makeDraggable(document.getElementById("st-phone-window"), document.getElementById("phone-drag-handle"));
+    makeDraggable(document.getElementById("st-phone-icon"), document.getElementById("st-phone-icon"));
 
-    // 3. 辅助：渲染消息
+    // 3. 辅助：渲染消息 (保持不变)
     function renderMessageContent(text) {
-        if(!text) return '';
         const bqbRegex = /\[bqb-(\d+)\]/g; 
         let html = text.replace(bqbRegex, (match, indexStr) => {
             const index = parseInt(indexStr);
@@ -176,29 +172,6 @@
 
     // 4. UI 导出
     window.ST_PHONE.ui = {
-        closeChat: function() {
-            const pageChat = document.getElementById('page-chat');
-            const pageContacts = document.getElementById('page-contacts');
-            const stickerPanel = document.getElementById('sticker-panel');
-
-            // 1. 隐藏可能打开的表情面板
-            if(stickerPanel) stickerPanel.classList.add('hidden');
-
-            // 2. 切换页面动画：聊天页退出，联系人页进入
-            pageChat.classList.add('hidden-right');
-            pageChat.classList.remove('active');
-
-            pageContacts.classList.remove('hidden-left');
-            pageContacts.classList.add('active');
-
-            // 3. 清除当前活跃状态
-            window.ST_PHONE.state.activeContactId = null;
-            
-            // 4. 刷新联系人列表（更新未读状态和最后一条消息）
-            if (window.ST_PHONE.ui.renderContacts) {
-                window.ST_PHONE.ui.renderContacts();
-            }
-        },
         toggleWindow: function() {
             const windowEl = document.getElementById('st-phone-window');
             if (window.ST_PHONE.state.isDragging) {
@@ -220,7 +193,7 @@
             if (window.ST_PHONE.path) {
                 const audio = new Audio(window.ST_PHONE.path + 'ding.mp3');
                 audio.volume = 0.6; 
-                audio.play().catch(e => console.log('声音播放被拦截', e));
+                audio.play().catch(e => console.log('声音播放被拦截或文件不存在', e));
             }
         },
 
@@ -260,7 +233,6 @@
         
         renderChat: function(contact, forceScroll = false) {
             const container = document.getElementById('chat-messages-container');
-            if(!container) return;
             
             const threshold = 60; 
             const currentScrollTop = container.scrollTop;
@@ -312,31 +284,27 @@
         },
 
         openChat: function(contact) {
-            // 1. 设置当前活跃联系人
             window.ST_PHONE.state.activeContactId = contact.id;
-
-            // 2. 从未读集合中移除该ID
             if (window.ST_PHONE.state.unreadIds) {
                 window.ST_PHONE.state.unreadIds.delete(contact.id);
             }
-
-            // 【关键修复】手动强制更新当前联系人对象的未读状态
-            // 这样 renderContacts 渲染时就能立即读取到 false，而不用等 core.js 下一次扫描
-            contact.hasUnread = false; 
-
-            // 3. 重新渲染通讯录（此时蓝点会立即消失）
             window.ST_PHONE.ui.renderContacts();
 
-            // 4. 初始化聊天界面
             document.getElementById('chat-title').innerText = contact.name;
             window.ST_PHONE.ui.renderChat(contact, true);
-            
-            // 5. 切换视图
             document.getElementById('sticker-panel').classList.add('hidden');
             document.getElementById('page-contacts').classList.add('hidden-left');
             document.getElementById('page-contacts').classList.remove('active');
             document.getElementById('page-chat').classList.remove('hidden-right');
             document.getElementById('page-chat').classList.add('active');
+        },
+        closeChat: function() {
+            window.ST_PHONE.state.activeContactId = null;
+            document.getElementById('page-contacts').classList.remove('hidden-left');
+            document.getElementById('page-contacts').classList.add('active');
+            document.getElementById('page-chat').classList.add('hidden-right');
+            document.getElementById('page-chat').classList.remove('active');
+            window.ST_PHONE.ui.renderContacts();
         },
         toggleNewMsgSheet: function(show) {
             const sheet = document.getElementById('page-new-msg');
@@ -387,8 +355,7 @@
                         img.onclick = () => {
                             const input = document.getElementById('msg-input');
                             input.value = `[bqb-${index}]`; 
-                            const sendBtn = document.getElementById('btn-send');
-                            if(sendBtn) sendBtn.click();
+                            document.getElementById('btn-send').click();
                             panel.classList.add('hidden');
                         };
                         container.appendChild(img);
@@ -400,11 +367,13 @@
             }
         },
 
-        // --- 设置页逻辑 (UI更新: 移除Input逻辑) ---
+        // --- 设置页逻辑 (修复版) ---
         openSettings: async function() {
             const pageContacts = document.getElementById('page-contacts');
             const pageSettings = document.getElementById('page-settings');
             const select = document.getElementById('setting-worldbook-select');
+            const input = document.getElementById('setting-worldbook-input');
+            const statusSpan = document.getElementById('auto-match-status');
 
             // 1. 切换页面
             pageContacts.classList.add('hidden-left');
@@ -416,11 +385,12 @@
             select.innerHTML = '<option value="">加载中...</option>';
             
             let worldBooks = [];
+            // 使用我们新的 Omni-Scanner 获取列表
             if (window.ST_PHONE.scribe && window.ST_PHONE.scribe.getWorldBookList) {
                 worldBooks = await window.ST_PHONE.scribe.getWorldBookList();
             }
 
-            select.innerHTML = '<option value="">(推荐：自动跟随)</option>';
+            select.innerHTML = '<option value="">(暂不存储)</option>';
             
             const uniqueBooks = [...new Set(worldBooks)];
             uniqueBooks.forEach(name => {
@@ -431,12 +401,59 @@
                 select.appendChild(opt);
             });
 
-            // 3. 回显状态
-            const currentSelection = window.ST_PHONE.config.targetWorldBook;
-            if (currentSelection && uniqueBooks.includes(currentSelection)) {
-                select.value = currentSelection;
-            } else {
-                select.value = "";
+            // 3. 回显状态 (优先 input，其次 select)
+            let currentSelection = window.ST_PHONE.config.targetWorldBook;
+
+            // 4. 自动匹配逻辑
+            let matched = false;
+            if (!currentSelection) {
+                if (typeof SillyTavern !== 'undefined') {
+                    try {
+                        const context = SillyTavern.getContext();
+                        const charId = context.characterId;
+                        if (charId && SillyTavern.characters && SillyTavern.characters[charId]) {
+                            const charData = SillyTavern.characters[charId].data;
+                            const boundBook = charData.character_book;
+                            if (boundBook) {
+                                const boundName = (typeof boundBook === 'string') ? boundBook : boundBook.name;
+                                if (boundName) {
+                                    // 无论列表里有没有，都直接用这个绑定的名字
+                                    currentSelection = boundName;
+                                    window.ST_PHONE.config.targetWorldBook = currentSelection;
+                                    matched = true;
+                                    statusSpan.innerText = `已自动绑定: ${currentSelection}`;
+                                    statusSpan.style.color = '#007AFF';
+                                    
+                                    // 保存一次，确保 index.js 里的监听器能拿到
+                                    if(localStorage) {
+                                        localStorage.setItem('ST_PHONE_PREFS', JSON.stringify({ targetWorldBook: currentSelection }));
+                                    }
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            if (!matched && !currentSelection) {
+                statusSpan.innerText = '未检测到角色绑定，请手动选择或输入';
+                statusSpan.style.color = '#8e8e93';
+            } else if (!matched) {
+                 statusSpan.innerText = `当前使用: ${currentSelection}`;
+                 statusSpan.style.color = '#007AFF';
+            }
+
+            // 5. 设置控件的值
+            if (currentSelection) {
+                // 如果这个值在列表里，就选下拉框
+                if (uniqueBooks.includes(currentSelection)) {
+                    select.value = currentSelection;
+                    input.value = '';
+                } else {
+                    // 如果不在列表里，就填输入框
+                    select.value = "";
+                    input.value = currentSelection;
+                }
             }
         },
 
@@ -450,11 +467,18 @@
             pageContacts.classList.add('active');
         },
         
+        // 统一保存逻辑：Input 优先
         saveSettings: function() {
             const select = document.getElementById('setting-worldbook-select');
-            let val = select.value;
-            window.ST_PHONE.config.targetWorldBook = val;
+            const input = document.getElementById('setting-worldbook-input');
             
+            let val = input.value.trim();
+            if (!val) val = select.value;
+            
+            window.ST_PHONE.config.targetWorldBook = val;
+            console.log('📱 ST-iOS-Phone: 存储目标已更新为', val);
+            
+            // 手动触发 LocalStorage 保存 (因为 index.js 只监听了 select change)
             if(localStorage) {
                 localStorage.setItem('ST_PHONE_PREFS', JSON.stringify({ targetWorldBook: val }));
             }
@@ -462,21 +486,24 @@
     };
 
     // 事件绑定
-    const icon = document.getElementById('st-phone-icon');
-    if(icon) {
-        icon.addEventListener('click', () => {
-            const isOpen = window.ST_PHONE.ui.toggleWindow();
-            if(isOpen) document.dispatchEvent(new Event('st-phone-opened'));
-        });
-    }
-
+    document.getElementById('st-phone-icon').addEventListener('click', () => {
+        const isOpen = window.ST_PHONE.ui.toggleWindow();
+        if(isOpen) document.dispatchEvent(new CustomEvent('st-phone-opened'));
+    });
     document.getElementById('btn-back').onclick = window.ST_PHONE.ui.closeChat;
+    
+    // --- 新增：设置页事件绑定 ---
     document.getElementById('btn-open-settings').onclick = window.ST_PHONE.ui.openSettings;
     document.getElementById('btn-settings-back').onclick = window.ST_PHONE.ui.closeSettings;
     
-    // 只有 Select 变动触发保存，Input 已移除
-    document.getElementById('setting-worldbook-select').addEventListener('change', window.ST_PHONE.ui.saveSettings);
+    // 两个输入控件变动都触发保存
+    document.getElementById('setting-worldbook-select').addEventListener('change', (e) => {
+        document.getElementById('setting-worldbook-input').value = ''; // 清空输入框
+        window.ST_PHONE.ui.saveSettings();
+    });
+    document.getElementById('setting-worldbook-input').addEventListener('input', window.ST_PHONE.ui.saveSettings);
 
+    // 其余逻辑保持不变...
     document.getElementById('phone-search-bar').addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase().trim();
         const allContacts = window.ST_PHONE.state.contacts;
@@ -510,8 +537,7 @@
                 } else {
                     e.preventDefault();
                     if (e.target.value.trim()) {
-                        const sendBtn = document.getElementById('btn-send');
-                        if(sendBtn) sendBtn.click();
+                        document.getElementById('btn-send').click(); 
                     }
                     e.target.style.height = '36px'; 
                 }
@@ -522,23 +548,5 @@
             this.style.height = (this.scrollHeight) + 'px'; 
         });
     }
-
-    document.addEventListener('keydown', (e) => {
-        // 只有当手机处于打开状态时才拦截
-        if (e.key === 'Escape' && window.ST_PHONE.state.isPhoneOpen) {
-            
-            // 逻辑优化：如果表情包面板开着，先关表情包
-            const stickerPanel = document.getElementById('sticker-panel');
-            if (stickerPanel && !stickerPanel.classList.contains('hidden')) {
-                window.ST_PHONE.ui.toggleStickerPanel();
-                e.stopPropagation(); // 阻止事件冒泡，避免误触酒馆其他功能
-                return;
-            }
-
-            // 否则直接关闭/隐藏手机窗口
-            window.ST_PHONE.ui.toggleWindow();
-            e.stopPropagation();
-        }
-    });
 
 })();
