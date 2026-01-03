@@ -287,11 +287,6 @@
 
         window.ST_PHONE.state.contacts = contactList;
 
-        // 调用书记员模块，将刚才整理好的 contacts 同步进世界书
-        if (window.ST_PHONE.scribe) {
-            window.ST_PHONE.scribe.sync(window.ST_PHONE.state.contacts);
-        }
-        
         if (window.ST_PHONE.ui.renderContacts) {
             const searchInput = document.getElementById('phone-search-bar');
             if (!searchInput || !searchInput.value) {
