@@ -71,30 +71,31 @@ console.log('🔄 [Core] 开始初始化...');
     function createNewWIEntry(uid) {
         return {
             uid: uid,
-            key: [],                    // 关键词数组 (ST 用 key 不是 keys!)
+            key: [],                    // 关键词数组
             keysecondary: [],           // 次要关键词
             comment: '',                // 备注/标题
             content: '',                // 内容
             constant: false,            // 是否常驻
             vectorized: false,          // 是否向量化
             selective: true,            // 是否选择性激活
-            selectiveLogic: 0,          // AND_ANY
+            selectiveLogic: 0,          // 0 = AND_ANY (与任意)
             addMemo: true,              // 显示备注
             order: 100,                 // 排序权重
-            position: 0,                // 位置 (0=before_char)
-            disable: false,             // 是否禁用 (ST 用 disable 不是 enabled!)
+            position: 4,                // 修改为 4 (对应 @D/[系统]在深度)
+            depth: 3,                   // 修改为 3 (对应深度 3)
+            disable: false,             // 是否禁用
             excludeRecursion: false,
-            preventRecursion: true,
+            preventRecursion: true,     // 防止进一步递归 (默认勾选)
             matchPersonaDescription: false,
             matchCharacterDescription: false,
             matchCharacterPersonality: false,
             matchCharacterDepthPrompt: false,
             matchScenario: false,
             matchCreatorNotes: false,
-            delayUntilRecursion: false,  // 布尔值，不是数字
+            delayUntilRecursion: false,
             probability: 100,
             useProbability: true,
-            depth: 4,
+            
             group: '',
             groupOverride: false,
             groupWeight: 100,
@@ -103,20 +104,19 @@ console.log('🔄 [Core] 开始初始化...');
             matchWholeWords: null,
             useGroupScoring: null,
             automationId: '',
-            role: null,                  // 可以是 null
-            sticky: 0,                   // 数字，不是 null
-            cooldown: 0,                 // 数字，不是 null
-            delay: 0,                    // 数字，不是 null
-            displayIndex: 0,             // 必需字段！通常等于 uid
+            role: null,
+            sticky: 0,
+            cooldown: 0,
+            delay: 0,
             ignoreBudget: false,
             outletName: '',
             triggers: [],
-            characterFilter: {           // 必需字段！
+            characterFilter: {
                 isExclude: false,
                 names: [],
                 tags: []
             },
-            displayIndex: uid           // 必需字段！
+            displayIndex: uid           // 必需字段，用于排序显示
         };
     }
 
