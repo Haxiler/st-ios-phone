@@ -45,6 +45,10 @@ console.log('🔄 [Core] 开始初始化...');
     let cachedContactsMap = new Map(); 
     let lastChatLength = 0; 
     let lastXmlMsgCount = -1;
+    let isInitialScanComplete = false; // 标志：是否已完成首次扫描
+    let initialScanStableCount = 0; // 首次扫描稳定计数器：连续几次扫描结果一致才认为稳定
+    let lastInitialScanFingerprint = ''; // 首次扫描时的聊天指纹，用于检测聊天记录是否还在加载
+    let initialScanStartTime = 0; // 首次扫描开始时间，用于超时判断
 
     // =========================================================
     // 核心功能：使用 SillyTavern Context API
@@ -469,6 +473,36 @@ console.log('🔄 [Core] 开始初始化...');
                 }
             }
 
+            console.log('🔍 [Debug] Step 4.5: 检查需要删除的空闲条目...');
+            const activeCharNames = new Set();
+            // 收集当前所有还有短信的角色名
+            for (let [id, contact] of contactsMap) {
+                if (contact.messages.length > 0) {
+                    activeCharNames.add(contact.name);
+                }
+            }
+
+            const orphanUids = [];
+            for (const [uid, entry] of Object.entries(entriesObj)) {
+                // 检查由插件自动生成的条目
+                if (entry.comment && entry.comment.startsWith('ST-Phone-Auto: ')) {
+                    const extractedName = entry.comment.replace('ST-Phone-Auto: ', '').trim();
+                    // 如果这个角色不在当前的活跃列表里，说明短信被删光了
+                    if (!activeCharNames.has(extractedName)) {
+                        orphanUids.push(uid);
+                    }
+                }
+            }
+
+            if (orphanUids.length > 0) {
+                orphanUids.forEach(uid => {
+                    const name = entriesObj[uid].comment;
+                    delete entriesObj[uid]; // 从对象中删除该条目
+                    console.log(`    🗑️ [清理] 删除已无短信的角色记录: UID ${uid} (${name})`);
+                });
+                hasChanges = true; // 标记需要保存
+            }
+
             debugInfo.hasChanges = hasChanges;
 
             if (hasChanges) {
@@ -565,17 +599,48 @@ console.log('🔄 [Core] 开始初始化...');
 
     function scanChatHistory() {
         const context = getSTContext();
-        if (!context) return;
+        if (!context) {
+            console.log('🔵 [Debug] scanChatHistory: context 不可用');
+            return;
+        }
         
         const chat = context.chat; 
-        if (!chat || chat.length === 0) return;
+        if (!chat || chat.length === 0) {
+            console.log('🔵 [Debug] scanChatHistory: chat 为空');
+            return;
+        }
+        
+        console.log(`🔵 [Debug] scanChatHistory: 开始扫描, chat.length=${chat.length}, isInitialScanComplete=${isInitialScanComplete}, initialScanStableCount=${initialScanStableCount}`);
 
         const lastMsg = chat[chat.length - 1];
         const lastMsgHash = lastMsg.mes ? lastMsg.mes.slice(-50) : ''; 
-        const currentFingerprint = `${chat.length}|${lastMsgHash}|${context.name1}`; 
+        const totalCharCount = chat.reduce((acc, msg) => acc + (msg.mes ? msg.mes.length : 0), 0);
+
+        const currentFingerprint = `${chat.length}|${lastMsgHash}|${context.name1}|${totalCharCount}`; 
 
         if (currentFingerprint !== lastChatFingerprint) {
             lastChatFingerprint = currentFingerprint;
+            console.log(`📝 [Core] 检测到聊天记录变动，重新扫描... isInitialScanComplete=${isInitialScanComplete}, cachedContactsMap.size=${cachedContactsMap.size}`);
+            
+            // 如果还在首次扫描阶段，检查聊天记录是否稳定
+            if (!isInitialScanComplete) {
+                if (initialScanStartTime === 0) {
+                    // 第一次扫描，记录开始时间
+                    initialScanStartTime = Date.now();
+                    lastInitialScanFingerprint = currentFingerprint;
+                    initialScanStableCount = 0;
+                    console.log(`🟡 [Debug] 首次扫描开始，初始化指纹`);
+                } else if (currentFingerprint === lastInitialScanFingerprint) {
+                    // 指纹一致，增加稳定计数
+                    initialScanStableCount++;
+                    console.log(`🟢 [Debug] 首次扫描稳定计数: ${initialScanStableCount}/3`);
+                } else {
+                    // 指纹变化，重置计数
+                    initialScanStableCount = 0;
+                    lastInitialScanFingerprint = currentFingerprint;
+                    console.log(`🟡 [Debug] 首次扫描检测到变化，重置稳定计数`);
+                }
+            }
             
             if (lastChatLength > 0 && chat.length > lastChatLength) {
                 const newMessages = chat.slice(lastChatLength);
@@ -668,18 +733,65 @@ console.log('🔄 [Core] 开始初始化...');
 
             newContactsMap.forEach((contact, id) => {
                 const oldContact = cachedContactsMap.get(id);
-                if ((!oldContact || contact.messages.length > oldContact.messages.length)) {
-                    const oldLen = oldContact ? oldContact.messages.length : 0;
+                // 修复：只有在非首次扫描时，才检查并标记未读消息
+                if (isInitialScanComplete && oldContact && contact.messages.length > oldContact.messages.length) {
+                    const oldLen = oldContact.messages.length;
                     const newMsgs = contact.messages.slice(oldLen);
-                    if (newMsgs.some(m => m.sender === 'char')) {
+                    const hasNewCharMsg = newMsgs.some(m => m.sender === 'char');
+                    
+                    // 检查：确保新消息确实存在且与旧消息不同（防止重复扫描）
+                    const lastOldMsg = oldContact.messages[oldContact.messages.length - 1];
+                    const firstNewMsg = newMsgs[0];
+                    // 如果旧消息存在，检查新消息是否真的不同
+                    const isReallyNew = !lastOldMsg || !firstNewMsg || 
+                        (lastOldMsg.text !== firstNewMsg.text || lastOldMsg.timestamp !== firstNewMsg.timestamp);
+                    
+                    if (hasNewCharMsg && isReallyNew) {
                         if (window.ST_PHONE.state.activeContactId !== id) {
+                            console.log(`🔴 [Debug] 标记未读: ${id}, 消息数 ${oldLen}->${contact.messages.length}, 新角色消息数=${newMsgs.filter(m => m.sender === 'char').length}`);
                             window.ST_PHONE.state.unreadIds.add(id);
+                        } else {
+                            console.log(`🟡 [Debug] 跳过标记未读: ${id}, 因为这是当前活跃的联系人`);
                         }
+                    } else if (!hasNewCharMsg) {
+                        console.log(`🟢 [Debug] 跳过标记未读: ${id}, 新消息都是用户发送的`);
+                    } else if (!isReallyNew) {
+                        console.log(`🟢 [Debug] 跳过标记未读: ${id}, 消息内容未真正变化（可能是重复扫描）`);
+                    }
+                } else if (isInitialScanComplete && !oldContact && contact.messages.length > 0) {
+                    // 新联系人，只有在首次扫描完成后才标记未读
+                    const hasCharMsg = contact.messages.some(m => m.sender === 'char');
+                    if (hasCharMsg && window.ST_PHONE.state.activeContactId !== id) {
+                        console.log(`🔴 [Debug] 标记新联系人未读: ${id}, 消息数=${contact.messages.length}`);
+                        window.ST_PHONE.state.unreadIds.add(id);
+                    }
+                } else {
+                    if (!isInitialScanComplete) {
+                        // 首次扫描阶段，不标记未读
+                        // console.log(`🟢 [Debug] 首次扫描跳过: ${id}, 消息数=${contact.messages.length}`);
+                    } else if (!oldContact) {
+                        // console.log(`🟢 [Debug] 跳过: ${id}, 新联系人但无消息`);
+                    } else if (contact.messages.length <= oldContact.messages.length) {
+                        // console.log(`🟢 [Debug] 无新消息跳过: ${id}, 消息数=${oldContact.messages.length}->${contact.messages.length}`);
                     }
                 }
             });
 
             cachedContactsMap = newContactsMap;
+            // 标记首次扫描已完成（需要连续3次扫描结果一致，或超过5秒超时）
+            if (!isInitialScanComplete) {
+                const scanDuration = Date.now() - initialScanStartTime;
+                const isStable = initialScanStableCount >= 3;
+                const isTimeout = scanDuration > 5000; // 5秒超时
+                
+                if (isStable || isTimeout) {
+                    isInitialScanComplete = true;
+                    const reason = isStable ? '稳定' : '超时';
+                    console.log(`📱 [Core] 首次扫描完成（${reason}），已加载历史消息。联系人数量: ${newContactsMap.size}, 未读标记数量: ${window.ST_PHONE.state.unreadIds.size}, 耗时: ${scanDuration}ms`);
+                } else {
+                    console.log(`🟡 [Core] 首次扫描进行中，等待稳定... (${initialScanStableCount}/3, 已耗时: ${scanDuration}ms)`);
+                }
+            }
             if (latestNarrativeTime) window.ST_PHONE.state.virtualTime = latestNarrativeTime;
 
             if (lastXmlMsgCount === -1) {
@@ -784,7 +896,7 @@ console.log('🔄 [Core] 开始初始化...');
             window.ST_PHONE.state.lastUserSendTime = Date.now();
             setTimeout(scanChatHistory, 50);
             input.value = '';
-            mainTextArea.focus(); 
+            input.focus(); 
         } else {
             alert('❌ 找不到酒馆主输入框 (#send_textarea)');
         }
@@ -794,7 +906,10 @@ console.log('🔄 [Core] 开始初始化...');
     // 事件监听与初始化
     // =========================================================
     
-    document.addEventListener('st-phone-opened', () => { scanChatHistory(); });
+    document.addEventListener('st-phone-opened', () => { 
+        console.log('🔵 [Debug] st-phone-opened 事件触发，调用 scanChatHistory');
+        scanChatHistory(); 
+    });
     
     // 绑定发送按钮
     const sendBtn = document.getElementById('btn-send');

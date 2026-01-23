@@ -295,9 +295,11 @@
         },
 
         openChat: function(contact) {
+            console.log(`🔵 [Debug] openChat: ${contact.id}, 当前未读标记: ${Array.from(window.ST_PHONE.state.unreadIds || [])}`);
             window.ST_PHONE.state.activeContactId = contact.id;
             if (window.ST_PHONE.state.unreadIds) {
                 window.ST_PHONE.state.unreadIds.delete(contact.id);
+                console.log(`🔵 [Debug] openChat: 已删除未读标记，剩余: ${Array.from(window.ST_PHONE.state.unreadIds)}`);
             }
             window.ST_PHONE.ui.renderContacts();
 
@@ -853,6 +855,13 @@
     const msgInput = document.getElementById('msg-input');
     if(msgInput) {
         msgInput.addEventListener('keydown', (e) => { 
+            if (e.key === 'Escape') {
+                window.ST_PHONE.ui.toggleWindow();
+                const mainInput = document.getElementById('send_textarea');
+                if (mainInput) mainInput.focus();
+                return;
+            }
+			
             e.stopPropagation();
             if (e.key === 'Enter') {
                 if (e.shiftKey) {
@@ -871,5 +880,19 @@
             this.style.height = (this.scrollHeight) + 'px'; 
         });
     }
+
+    document.addEventListener('keydown', (e) => {
+        // 只有当手机处于打开状态时才触发
+        if (e.key === 'Escape' && window.ST_PHONE.state.isPhoneOpen) {
+            // 1. 关闭手机界面
+            window.ST_PHONE.ui.toggleWindow();
+            
+            // 2. 将焦点归还给酒馆主输入框
+            const mainInput = document.getElementById('send_textarea');
+            if (mainInput) {
+                mainInput.focus();
+            }
+        }
+    });
 
 })();
