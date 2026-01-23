@@ -88,7 +88,7 @@ console.log('🔄 [Core] 开始初始化...');
             position: 4,                // 修改为 4 (对应 @D/[系统]在深度)
             depth: 3,                   // 修改为 3 (对应深度 3)
             disable: false,             // 是否禁用
-            excludeRecursion: false,
+            excludeRecursion: true,
             preventRecursion: true,     // 防止进一步递归 (默认勾选)
             matchPersonaDescription: false,
             matchCharacterDescription: false,
@@ -351,7 +351,7 @@ console.log('🔄 [Core] 开始初始化...');
                     
                     // 6. 确保必需字段存在
                     const requiredFields = {
-                        excludeRecursion: false,
+                        excludeRecursion: true,
                         preventRecursion: true,
                         matchPersonaDescription: false,
                         matchCharacterDescription: false,
