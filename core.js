@@ -41,6 +41,7 @@ console.log('🔄 [Core] 开始初始化...');
     window.ST_PHONE.state.virtualTime = getSystemTimeStr(); 
     window.ST_PHONE.state.unreadIds = window.ST_PHONE.state.unreadIds || new Set();
 
+    let lastChatId = null;
     let lastChatFingerprint = ''; 
     let cachedContactsMap = new Map(); 
     let lastChatLength = 0; 
@@ -591,18 +592,93 @@ console.log('🔄 [Core] 开始初始化...');
         }
     };
 
+    async function clearOldWorldInfoData() {
+        const bookName = window.ST_PHONE.config.targetWorldBook;
+        if (!bookName) return;
+        const context = getSTContext();
+        if (!context || !context.loadWorldInfo) return;
+
+        console.log('🧹 [Core] 检测到聊天切换，正在清理旧的世界书记录...');
+        
+        try {
+            const bookData = await context.loadWorldInfo(bookName);
+            if (!bookData || !bookData.entries) return;
+
+            // 兼容数组和对象格式
+            let entries = bookData.entries;
+            let isArray = Array.isArray(entries);
+            let entriesObj = isArray ? {} : entries;
+            
+            if (isArray) {
+                entries.forEach(e => entriesObj[e.uid] = e);
+            }
+
+            // 找出所有自动生成的条目
+            const toDelete = [];
+            for (const [uid, entry] of Object.entries(entriesObj)) {
+                if (entry.comment && entry.comment.startsWith('ST-Phone-Auto:')) {
+                    toDelete.push(uid);
+                }
+            }
+
+            if (toDelete.length > 0) {
+                toDelete.forEach(uid => delete entriesObj[uid]);
+                
+                if (isArray) {
+                    bookData.entries = Object.values(entriesObj);
+                } else {
+                    bookData.entries = entriesObj;
+                }
+                
+                await context.saveWorldInfo(bookName, bookData, true);
+                console.log(`🧹 [Core] 清理完成，删除了 ${toDelete.length} 条旧记录`);
+                
+                try {
+                    const worldInfoModule = await import('/scripts/world-info.js');
+                    if (worldInfoModule && worldInfoModule.worldInfoCache) {
+                        worldInfoModule.worldInfoCache.delete(bookName);
+                    }
+                } catch (e) {}
+            } else {
+                console.log('🧹 [Core] 旧记录为空，无需清理');
+            }
+        } catch (e) {
+            console.error('❌ [Core] 清理失败:', e);
+        }
+    }
+    
     // =========================================================
     // 聊天扫描逻辑
     // =========================================================
     const REGEX_XML_MSG = /<msg>(.+?)\|(.+?)\|([\s\S]+?)\|(.*?)<\/msg>/gi;
     const REGEX_STORY_TIME = /(?:<|&lt;)time(?:>|&gt;)(.*?)(?:<|&lt;)\/time(?:>|&gt;)/i;
 
-    function scanChatHistory() {
+    async function scanChatHistory() { 
         const context = getSTContext();
         if (!context) {
-            console.log('🔵 [Debug] scanChatHistory: context 不可用');
+            // console.log('🔵 [Debug] scanChatHistory: context 不可用'); // 这行原本有，保留即可
             return;
         }
+
+        // --- 新增：切换聊天检测逻辑 ---
+        const currentChatId = context.chatId || context.characterId || context.name2;
+        if (currentChatId && lastChatId && lastChatId !== currentChatId) {
+            console.log(`🔄 [Core] 检测到聊天环境变更: ${lastChatId} -> ${currentChatId}`);
+            
+            lastChatFingerprint = ''; 
+            isInitialScanComplete = false;
+            initialScanStableCount = 0;
+            
+            cachedContactsMap = new Map();
+            window.ST_PHONE.state.contacts = [];
+            window.ST_PHONE.state.unreadIds = new Set();
+            window.ST_PHONE.state.pendingQueue = [];
+            
+            await clearOldWorldInfoData();
+            
+            if (window.ST_PHONE.ui.renderContacts) window.ST_PHONE.ui.renderContacts();
+        }
+        lastChatId = currentChatId;
         
         const chat = context.chat; 
         if (!chat || chat.length === 0) {
