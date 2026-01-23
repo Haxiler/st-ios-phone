@@ -808,6 +808,16 @@ console.log('🔄 [Core] 开始初始化...');
             
             // 自动同步到世界书
             syncSmsToLorebook(newContactsMap, false);
+        } else {
+            // [新增] 当指纹没有变化（画面稳定）时，累计计数
+            if (!isInitialScanComplete) {
+                initialScanStableCount++;
+                // 连续 2 次扫描（约4秒）没有变化，视为加载完成
+                if (initialScanStableCount >= 2) {
+                    isInitialScanComplete = true;
+                    console.log('✅ [Core] 聊天记录加载完成 (Ready)');
+                }
+            }
         }
         
         // 渲染逻辑 (确保 UI 数据最新)
