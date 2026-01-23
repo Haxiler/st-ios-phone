@@ -798,7 +798,7 @@ console.log('🔄 [Core] 开始初始化...');
                 lastXmlMsgCount = currentXmlMsgCount;
             } else {
                 if (currentXmlMsgCount > lastXmlMsgCount) {
-                    if (!lastParsedSmsWasMine && !window.ST_PHONE.state.isPhoneOpen) {
+                    if (!lastParsedSmsWasMine && !window.ST_PHONE.state.isPhoneOpen && isInitialScanComplete) {
                         if (window.ST_PHONE.ui.setNotification) window.ST_PHONE.ui.setNotification(true);
                         if (window.ST_PHONE.ui.playNotificationSound) window.ST_PHONE.ui.playNotificationSound();
                     }
