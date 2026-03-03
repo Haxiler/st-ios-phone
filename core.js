@@ -41,7 +41,6 @@ console.log('🔄 [Core] 开始初始化...');
     window.ST_PHONE.state.virtualTime = getSystemTimeStr(); 
     window.ST_PHONE.state.unreadIds = window.ST_PHONE.state.unreadIds || new Set();
 
-    let lastChatId = null;
     let lastChatFingerprint = ''; 
     let cachedContactsMap = new Map(); 
     let lastChatLength = 0; 
@@ -50,6 +49,7 @@ console.log('🔄 [Core] 开始初始化...');
     let initialScanStableCount = 0; // 首次扫描稳定计数器：连续几次扫描结果一致才认为稳定
     let lastInitialScanFingerprint = ''; // 首次扫描时的聊天指纹，用于检测聊天记录是否还在加载
     let initialScanStartTime = 0; // 首次扫描开始时间，用于超时判断
+    let lastChatName1 = ''; // 上次扫描时的name1，用于检测聊天切换
 
     // =========================================================
     // 核心功能：使用 SillyTavern Context API
@@ -592,93 +592,18 @@ console.log('🔄 [Core] 开始初始化...');
         }
     };
 
-    async function clearOldWorldInfoData() {
-        const bookName = window.ST_PHONE.config.targetWorldBook;
-        if (!bookName) return;
-        const context = getSTContext();
-        if (!context || !context.loadWorldInfo) return;
-
-        console.log('🧹 [Core] 检测到聊天切换，正在清理旧的世界书记录...');
-        
-        try {
-            const bookData = await context.loadWorldInfo(bookName);
-            if (!bookData || !bookData.entries) return;
-
-            // 兼容数组和对象格式
-            let entries = bookData.entries;
-            let isArray = Array.isArray(entries);
-            let entriesObj = isArray ? {} : entries;
-            
-            if (isArray) {
-                entries.forEach(e => entriesObj[e.uid] = e);
-            }
-
-            // 找出所有自动生成的条目
-            const toDelete = [];
-            for (const [uid, entry] of Object.entries(entriesObj)) {
-                if (entry.comment && entry.comment.startsWith('ST-Phone-Auto:')) {
-                    toDelete.push(uid);
-                }
-            }
-
-            if (toDelete.length > 0) {
-                toDelete.forEach(uid => delete entriesObj[uid]);
-                
-                if (isArray) {
-                    bookData.entries = Object.values(entriesObj);
-                } else {
-                    bookData.entries = entriesObj;
-                }
-                
-                await context.saveWorldInfo(bookName, bookData, true);
-                console.log(`🧹 [Core] 清理完成，删除了 ${toDelete.length} 条旧记录`);
-                
-                try {
-                    const worldInfoModule = await import('/scripts/world-info.js');
-                    if (worldInfoModule && worldInfoModule.worldInfoCache) {
-                        worldInfoModule.worldInfoCache.delete(bookName);
-                    }
-                } catch (e) {}
-            } else {
-                console.log('🧹 [Core] 旧记录为空，无需清理');
-            }
-        } catch (e) {
-            console.error('❌ [Core] 清理失败:', e);
-        }
-    }
-    
     // =========================================================
     // 聊天扫描逻辑
     // =========================================================
     const REGEX_XML_MSG = /<msg>(.+?)\|(.+?)\|([\s\S]+?)\|(.*?)<\/msg>/gi;
     const REGEX_STORY_TIME = /(?:<|&lt;)time(?:>|&gt;)(.*?)(?:<|&lt;)\/time(?:>|&gt;)/i;
 
-    async function scanChatHistory() { 
+    function scanChatHistory() {
         const context = getSTContext();
         if (!context) {
-            // console.log('🔵 [Debug] scanChatHistory: context 不可用'); // 这行原本有，保留即可
+            console.log('🔵 [Debug] scanChatHistory: context 不可用');
             return;
         }
-
-        // --- 新增：切换聊天检测逻辑 ---
-        const currentChatId = context.chatId || context.characterId || context.name2;
-        if (currentChatId && lastChatId && lastChatId !== currentChatId) {
-            console.log(`🔄 [Core] 检测到聊天环境变更: ${lastChatId} -> ${currentChatId}`);
-            
-            lastChatFingerprint = ''; 
-            isInitialScanComplete = false;
-            initialScanStableCount = 0;
-            
-            cachedContactsMap = new Map();
-            window.ST_PHONE.state.contacts = [];
-            window.ST_PHONE.state.unreadIds = new Set();
-            window.ST_PHONE.state.pendingQueue = [];
-            
-            await clearOldWorldInfoData();
-            
-            if (window.ST_PHONE.ui.renderContacts) window.ST_PHONE.ui.renderContacts();
-        }
-        lastChatId = currentChatId;
         
         const chat = context.chat; 
         if (!chat || chat.length === 0) {
@@ -693,10 +618,33 @@ console.log('🔄 [Core] 开始初始化...');
         const totalCharCount = chat.reduce((acc, msg) => acc + (msg.mes ? msg.mes.length : 0), 0);
 
         const currentFingerprint = `${chat.length}|${lastMsgHash}|${context.name1}|${totalCharCount}`; 
+        
+        // 检测是否是聊天切换（name1变化，或聊天长度大幅变化且cachedContactsMap为空/很小）
+        // 这种情况通常发生在从首页点击进入已有聊天时
+        const isChatSwitch = isInitialScanComplete && (
+            (lastChatName1 && context.name1 && lastChatName1 !== context.name1) ||
+            (lastChatLength === 0 && chat.length > 10) ||
+            (cachedContactsMap.size === 0 && chat.length > 10 && lastChatLength === 0)
+        );
+        
+        if (isChatSwitch) {
+            console.log(`🔄 [Core] 检测到聊天切换: name1从"${lastChatName1}"切换到"${context.name1}", 聊天长度从${lastChatLength}到${chat.length}, cachedContactsMap.size=${cachedContactsMap.size}`);
+            // 清除当前活跃联系人的未读标记，避免将已有消息误判为新消息
+            if (window.ST_PHONE.state.activeContactId) {
+                window.ST_PHONE.state.unreadIds.delete(window.ST_PHONE.state.activeContactId);
+                console.log(`🟢 [Core] 聊天切换：已清除活跃联系人 ${window.ST_PHONE.state.activeContactId} 的未读标记`);
+            }
+            // 清除悬浮窗红点，避免显示误判的新消息提示
+            if (window.ST_PHONE.ui && window.ST_PHONE.ui.setNotification) {
+                window.ST_PHONE.ui.setNotification(false);
+                console.log(`🟢 [Core] 聊天切换：已清除悬浮窗红点`);
+            }
+        }
 
         if (currentFingerprint !== lastChatFingerprint) {
             lastChatFingerprint = currentFingerprint;
-            console.log(`📝 [Core] 检测到聊天记录变动，重新扫描... isInitialScanComplete=${isInitialScanComplete}, cachedContactsMap.size=${cachedContactsMap.size}`);
+            lastChatName1 = context.name1 || ''; // 更新name1记录
+            console.log(`📝 [Core] 检测到聊天记录变动，重新扫描... isInitialScanComplete=${isInitialScanComplete}, cachedContactsMap.size=${cachedContactsMap.size}, isChatSwitch=${isChatSwitch}`);
             
             // 如果还在首次扫描阶段，检查聊天记录是否稳定
             if (!isInitialScanComplete) {
@@ -822,10 +770,15 @@ console.log('🔄 [Core] 开始初始化...');
                     const isReallyNew = !lastOldMsg || !firstNewMsg || 
                         (lastOldMsg.text !== firstNewMsg.text || lastOldMsg.timestamp !== firstNewMsg.timestamp);
                     
+                    // 如果是聊天切换，且这是当前活跃的联系人，则不标记未读
+                    // 或者如果是聊天切换且消息数量大幅增加（可能是从首页进入已有聊天），也不标记未读
+                    const isMassiveIncrease = oldLen === 0 && contact.messages.length > 5; // 从0增加到5条以上
                     if (hasNewCharMsg && isReallyNew) {
-                        if (window.ST_PHONE.state.activeContactId !== id) {
+                        if (window.ST_PHONE.state.activeContactId !== id && !isChatSwitch && !isMassiveIncrease) {
                             console.log(`🔴 [Debug] 标记未读: ${id}, 消息数 ${oldLen}->${contact.messages.length}, 新角色消息数=${newMsgs.filter(m => m.sender === 'char').length}`);
                             window.ST_PHONE.state.unreadIds.add(id);
+                        } else if (isChatSwitch || isMassiveIncrease) {
+                            console.log(`🟢 [Debug] 聊天切换/大量增加：跳过标记未读 ${id}，消息数 ${oldLen}->${contact.messages.length}`);
                         } else {
                             console.log(`🟡 [Debug] 跳过标记未读: ${id}, 因为这是当前活跃的联系人`);
                         }
@@ -836,10 +789,15 @@ console.log('🔄 [Core] 开始初始化...');
                     }
                 } else if (isInitialScanComplete && !oldContact && contact.messages.length > 0) {
                     // 新联系人，只有在首次扫描完成后才标记未读
+                    // 但如果这是聊天切换导致的重新扫描，且这是当前活跃的联系人，则不标记未读
+                    // 或者如果消息数量很多（可能是从首页进入已有聊天），也不标记未读
                     const hasCharMsg = contact.messages.some(m => m.sender === 'char');
-                    if (hasCharMsg && window.ST_PHONE.state.activeContactId !== id) {
+                    const isMassiveNewContact = contact.messages.length > 5; // 新联系人但消息很多
+                    if (hasCharMsg && window.ST_PHONE.state.activeContactId !== id && !isChatSwitch && !isMassiveNewContact) {
                         console.log(`🔴 [Debug] 标记新联系人未读: ${id}, 消息数=${contact.messages.length}`);
                         window.ST_PHONE.state.unreadIds.add(id);
+                    } else if (isChatSwitch || isMassiveNewContact) {
+                        console.log(`🟢 [Debug] 聊天切换/大量新联系人：跳过标记未读 ${id}，消息数=${contact.messages.length}`);
                     }
                 } else {
                     if (!isInitialScanComplete) {
@@ -854,6 +812,24 @@ console.log('🔄 [Core] 开始初始化...');
             });
 
             cachedContactsMap = newContactsMap;
+            
+            // 如果是聊天切换，在扫描完成后再次清除当前活跃联系人的未读标记和悬浮窗红点
+            if (isChatSwitch) {
+                if (window.ST_PHONE.state.activeContactId) {
+                    window.ST_PHONE.state.unreadIds.delete(window.ST_PHONE.state.activeContactId);
+                    const currentContact = newContactsMap.get(window.ST_PHONE.state.activeContactId);
+                    if (currentContact) {
+                        currentContact.hasUnread = false;
+                    }
+                    console.log(`🟢 [Core] 聊天切换完成：已清除活跃联系人 ${window.ST_PHONE.state.activeContactId} 的未读标记`);
+                }
+                // 清除悬浮窗红点
+                if (window.ST_PHONE.ui && window.ST_PHONE.ui.setNotification) {
+                    window.ST_PHONE.ui.setNotification(false);
+                    console.log(`🟢 [Core] 聊天切换完成：已清除悬浮窗红点`);
+                }
+            }
+            
             // 标记首次扫描已完成（需要连续3次扫描结果一致，或超过5秒超时）
             if (!isInitialScanComplete) {
                 const scanDuration = Date.now() - initialScanStartTime;
@@ -874,9 +850,16 @@ console.log('🔄 [Core] 开始初始化...');
                 lastXmlMsgCount = currentXmlMsgCount;
             } else {
                 if (currentXmlMsgCount > lastXmlMsgCount) {
-                    if (!lastParsedSmsWasMine && !window.ST_PHONE.state.isPhoneOpen && isInitialScanComplete) {
+                    // 检查是否是聊天切换导致的消息数量增加（从0或很少突然增加到很多）
+                    const isMassiveXmlIncrease = lastXmlMsgCount === 0 && currentXmlMsgCount > 5;
+                    const isChatSwitchXml = isChatSwitch || isMassiveXmlIncrease;
+                    
+                    // 只有在不是聊天切换、不是用户发送的消息、手机未打开、且首次扫描已完成时才触发通知
+                    if (!lastParsedSmsWasMine && !window.ST_PHONE.state.isPhoneOpen && isInitialScanComplete && !isChatSwitchXml) {
                         if (window.ST_PHONE.ui.setNotification) window.ST_PHONE.ui.setNotification(true);
                         if (window.ST_PHONE.ui.playNotificationSound) window.ST_PHONE.ui.playNotificationSound();
+                    } else if (isChatSwitchXml) {
+                        console.log(`🟢 [Core] 聊天切换导致XML消息增加，跳过红点和提示音: ${lastXmlMsgCount}->${currentXmlMsgCount}`);
                     }
                 }
                 lastXmlMsgCount = currentXmlMsgCount;

@@ -295,11 +295,15 @@
         },
 
         openChat: function(contact) {
-            console.log(`🔵 [Debug] openChat: ${contact.id}, 当前未读标记: ${Array.from(window.ST_PHONE.state.unreadIds || [])}`);
+            console.log(`🔵 [Debug] openChat: ${contact.id}, 当前未读标记: ${Array.from(window.ST_PHONE.state.unreadIds || [])}, 消息数: ${contact.messages ? contact.messages.length : 0}`);
             window.ST_PHONE.state.activeContactId = contact.id;
+            // 清除未读标记：如果联系人有大量消息（可能是从首页进入已有聊天），也清除未读标记
+            const hasManyMessages = contact.messages && contact.messages.length > 5;
             if (window.ST_PHONE.state.unreadIds) {
-                window.ST_PHONE.state.unreadIds.delete(contact.id);
-                console.log(`🔵 [Debug] openChat: 已删除未读标记，剩余: ${Array.from(window.ST_PHONE.state.unreadIds)}`);
+                if (window.ST_PHONE.state.unreadIds.has(contact.id) || hasManyMessages) {
+                    window.ST_PHONE.state.unreadIds.delete(contact.id);
+                    console.log(`🔵 [Debug] openChat: 已删除未读标记${hasManyMessages ? '（大量消息）' : ''}，剩余: ${Array.from(window.ST_PHONE.state.unreadIds)}`);
+                }
             }
             window.ST_PHONE.ui.renderContacts();
 
